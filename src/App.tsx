@@ -1,5 +1,5 @@
 import type { ComponentType } from 'react';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Navigate, Route, Routes, useNavigate, useLocation } from 'react-router-dom';
 import AdminDashboard from './pages/admin/A01_Dashboard';
 import UserListPage from './pages/admin/A02_UserList';
@@ -18,6 +18,9 @@ import AdminYearReportExportPage from './pages/admin/AdminYearReportExportPage';
 import LecturerGradingSummaryPage from './pages/lecturer/LecturerGradingSummaryPage';
 import LecturerRegradeManagementPage from './pages/lecturer/LecturerRegradeManagementPage';
 import LecturerYearReportPage from './pages/lecturer/LecturerYearReportPage';
+import { supabase } from './lib/supabaseClient';
+import { fetchCurrentUserRole, type AppRole } from './lib/supabaseData';
+import LogoutPage from './pages/shared/LogoutPage';
 
 function RouteAccessibilitySupport() {
   const location = useLocation();
@@ -48,37 +51,114 @@ const SemesterListRoute = withNavigate(SemesterListPage);
 const ClassListRoute = withNavigate(ClassListPage);
 const SubjectListRoute = withNavigate(SubjectListPage);
 
+function LoadingRoutePage() {
+  return (
+    <main className="auth-layout" id="main-content" tabIndex={-1}>
+      <section className="auth-card">
+        <h1 className="auth-title">Đang kiểm tra phiên đăng nhập...</h1>
+      </section>
+    </main>
+  );
+}
+
+function getRoleHome(role: AppRole | null) {
+  if (role === 'admin') return '/admin/dashboard';
+  if (role === 'lecturer') return '/lecturer/year-report';
+  return '/shared/error';
+}
+
 export default function App() {
+  const [authLoading, setAuthLoading] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [role, setRole] = useState<AppRole | null>(null);
+
+  useEffect(() => {
+    let active = true;
+
+    const applySession = async (session: any) => {
+      if (!active) return;
+      if (!session?.user) {
+        setIsAuthenticated(false);
+        setRole(null);
+        setAuthLoading(false);
+        return;
+      }
+
+      try {
+        const detectedRole = await fetchCurrentUserRole(session.user.id, session.user.email);
+        if (!active) return;
+        setIsAuthenticated(true);
+        setRole(detectedRole);
+      } catch {
+        if (!active) return;
+        setIsAuthenticated(true);
+        setRole(null);
+      } finally {
+        if (active) setAuthLoading(false);
+      }
+    };
+
+    if (!supabase) {
+      setAuthLoading(false);
+      return () => {
+        active = false;
+      };
+    }
+
+    void (async () => {
+      const { data } = await supabase.auth.getSession();
+      await applySession(data.session);
+    })();
+
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      void applySession(session);
+    });
+
+    return () => {
+      active = false;
+      listener.subscription.unsubscribe();
+    };
+  }, []);
+
+  const adminHome = getRoleHome(role);
+  const requireAuth = (element: JSX.Element, allow?: AppRole) => {
+    if (authLoading) return <LoadingRoutePage />;
+    if (!isAuthenticated) return <Navigate to="/shared/login" replace />;
+    if (allow && role !== allow) return <Navigate to="/shared/error" replace />;
+    return element;
+  };
+
   return (
     <>
       <RouteAccessibilitySupport />
       <Routes>
-        <Route path="/" element={<Navigate to="/shared/login" replace />} />
+        <Route path="/" element={<Navigate to={authLoading ? '/shared/login' : isAuthenticated ? adminHome : '/shared/login'} replace />} />
         <Route path="/preview" element={<Navigate to="/shared/login" replace />} />
 
-        <Route path="/shared/login" element={<LoginPage />} />
+        <Route path="/shared/login" element={authLoading ? <LoadingRoutePage /> : isAuthenticated ? <Navigate to={adminHome} replace /> : <LoginPage />} />
+        <Route path="/shared/logout" element={<LogoutPage />} />
         <Route path="/shared/register" element={<RegisterPage />} />
         <Route path="/shared/change-password" element={<ChangePasswordPage />} />
         <Route path="/shared/error" element={<ErrorNoPermissionPage />} />
 
-        <Route path="/admin/dashboard" element={<DashboardRoute />} />
+        <Route path="/admin/dashboard" element={requireAuth(<DashboardRoute />, 'admin')} />
         <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
-        <Route path="/admin/users" element={<UsersRoute />} />
-        <Route path="/admin/users/create" element={<UserCreateRoute />} />
-        <Route path="/admin/users/:id/edit" element={<UserEditRoute />} />
-        <Route path="/admin/academic-years" element={<YearListRoute />} />
-        <Route path="/admin/academic-years/create" element={<YearCreateRoute />} />
-        <Route path="/admin/semesters" element={<SemesterListRoute />} />
-        <Route path="/admin/classes" element={<ClassListRoute />} />
-        <Route path="/admin/subjects" element={<SubjectListRoute />} />
-        <Route path="/admin/subjects/form" element={<AdminSubjectFormPage />} />
-        <Route path="/admin/system-rules" element={<AdminSystemRulesPage />} />
-        <Route path="/admin/year-report-export" element={<AdminYearReportExportPage />} />
+        <Route path="/admin/users" element={requireAuth(<UsersRoute />, 'admin')} />
+        <Route path="/admin/users/create" element={requireAuth(<UserCreateRoute />, 'admin')} />
+        <Route path="/admin/users/:id/edit" element={requireAuth(<UserEditRoute />, 'admin')} />
+        <Route path="/admin/academic-years" element={requireAuth(<YearListRoute />, 'admin')} />
+        <Route path="/admin/academic-years/create" element={requireAuth(<YearCreateRoute />, 'admin')} />
+        <Route path="/admin/semesters" element={requireAuth(<SemesterListRoute />, 'admin')} />
+        <Route path="/admin/classes" element={requireAuth(<ClassListRoute />, 'admin')} />
+        <Route path="/admin/subjects" element={requireAuth(<SubjectListRoute />, 'admin')} />
+        <Route path="/admin/subjects/form" element={requireAuth(<AdminSubjectFormPage />, 'admin')} />
+        <Route path="/admin/system-rules" element={requireAuth(<AdminSystemRulesPage />, 'admin')} />
+        <Route path="/admin/year-report-export" element={requireAuth(<AdminYearReportExportPage />, 'admin')} />
 
-        <Route path="/lecturer/grading-summary" element={<LecturerGradingSummaryPage />} />
+        <Route path="/lecturer/grading-summary" element={requireAuth(<LecturerGradingSummaryPage />, 'lecturer')} />
         <Route path="/lecturer" element={<Navigate to="/lecturer/year-report" replace />} />
-        <Route path="/lecturer/regrades" element={<LecturerRegradeManagementPage />} />
-        <Route path="/lecturer/year-report" element={<LecturerYearReportPage />} />
+        <Route path="/lecturer/regrades" element={requireAuth(<LecturerRegradeManagementPage />, 'lecturer')} />
+        <Route path="/lecturer/year-report" element={requireAuth(<LecturerYearReportPage />, 'lecturer')} />
 
         <Route path="*" element={<Navigate to="/shared/error" replace />} />
       </Routes>

@@ -39,7 +39,6 @@ export default function LecturerYearReportPage() {
       roleBadge={<span className="badge badge-info">Bộ môn Công nghệ phần mềm</span>}
       sidebarSubtitle="Portal giảng viên"
       navItems={[
-        { label: 'Dashboard', to: '/lecturer/year-report' },
         { label: 'Tổng hợp điểm lớp', to: '/lecturer/grading-summary' },
         { label: 'Quản lý phúc khảo', to: '/lecturer/regrades' },
         { label: 'Báo cáo năm', to: '/lecturer/year-report', active: true },

@@ -21,7 +21,7 @@ export default function RoleLayout({
   return (
     <div className="app-shell">
       <aside className="sidebar" aria-label="Điều hướng vai trò">
-        <div className="brand">{sidebarTitle}</div>
+        <div className="brand"><img src="/assets/logo.svg" alt={sidebarTitle} className="brand-logo" /><span>{sidebarTitle}</span></div>
         {sidebarSubtitle ? <p style={{ margin: '-12px 0 20px', color: '#6b7280', fontSize: 13 }}>{sidebarSubtitle}</p> : null}
         <ul className="nav-list">
           {navItems.map((item) => (
@@ -37,7 +37,7 @@ export default function RoleLayout({
           ))}
         </ul>
         <div style={{ marginTop: 24, paddingTop: 16, borderTop: '1px solid #e5e7eb' }}>
-          <Link className="btn btn-tertiary" to="/shared/login">Đăng xuất</Link>
+          <Link className="btn btn-tertiary" to="/shared/logout">Đăng xuất</Link>
         </div>
       </aside>
 

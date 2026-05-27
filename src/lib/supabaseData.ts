@@ -14,6 +14,13 @@ const TABLES = {
   params: ['THAMSO', 'thamso'],
 } as const;
 
+const DEFAULT_ROLE_OPTIONS = [
+  { value: 'ADMIN', label: 'Quản trị viên' },
+  { value: 'GV', label: 'Giảng viên' },
+];
+
+export type AppRole = 'admin' | 'lecturer';
+
 type Candidate = readonly string[];
 
 type QueryResult<T> = {
@@ -53,11 +60,13 @@ async function countRows(candidates: Candidate): Promise<number> {
   return res.data.count;
 }
 
-function normalizeRole(name: string | null | undefined): 'admin' | 'lecturer' | 'student' {
+function normalizeRole(name: string | null | undefined): AppRole | null {
   const v = (name || '').toLowerCase();
+  if (['admin', 'ad', 'qtv'].includes(v)) return 'admin';
+  if (['gv', 'lecturer', 'giangvien', 'giảngviên'].includes(v)) return 'lecturer';
   if (v.includes('admin')) return 'admin';
   if (v.includes('giảng') || v.includes('giang') || v.includes('lect')) return 'lecturer';
-  return 'student';
+  return null;
 }
 
 function normalizeStatus(value: string | null | undefined): 'active' | 'inactive' {
@@ -73,24 +82,40 @@ function formatDate(value: string | null | undefined) {
   return d.toISOString().slice(0, 10);
 }
 
+function getField(row: any, keys: string[]) {
+  for (const key of keys) {
+    if (row?.[key] !== undefined && row?.[key] !== null && row?.[key] !== '') return row[key];
+  }
+  return undefined;
+}
+
+function toAppError(error: any) {
+  const message = error?.message || 'Không thể truy vấn dữ liệu từ Supabase.';
+  if (/row-level security policy/i.test(message)) {
+    return new Error('Bạn chưa có quyền ghi dữ liệu trên Supabase (RLS). Hãy thêm policy INSERT/UPDATE/DELETE hoặc tắt RLS cho bảng liên quan.');
+  }
+  return new Error(message);
+}
+
 export async function fetchDashboardData() {
-  const [totalExams, totalGradedSubmissions, totalUsers, totalClasses] = await Promise.all([
+  const [totalExams, totalGradedSubmissions, totalClasses] = await Promise.all([
     countRows(TABLES.exams),
     countRows(TABLES.submissions),
-    countRows(TABLES.users),
     countRows(TABLES.classes),
   ]);
 
   const client = getClient();
   const usersResult = await queryFirst<any[]>(TABLES.users, (table) => client.from(table).select('MaVaiTro'));
-  const rolesResult = await queryFirst<any[]>(TABLES.roles, (table) => client.from(table).select('MaVaiTro,TenVaiTro'));
-  const roleMap = new Map((rolesResult.data || []).map((r: any) => [r.MaVaiTro, r.TenVaiTro]));
+  const rolesResult = await queryFirst<any[]>(TABLES.roles, (table) => client.from(table).select('*'));
+  const roleMap = new Map((rolesResult.data || []).map((r: any) => [getField(r, ['MaVaiTro', 'maVaiTro', 'mavaitro']), getField(r, ['TenVaiTro', 'tenVaiTro', 'tenvaitro'])]));
 
   const roleCounts = (usersResult.data || []).reduce((acc: Record<string, number>, row: any) => {
     const role = normalizeRole(roleMap.get(row.MaVaiTro));
+    if (!role) return acc;
     acc[role] = (acc[role] || 0) + 1;
     return acc;
   }, {});
+  const totalUsers = (roleCounts.admin || 0) + (roleCounts.lecturer || 0);
 
   const examsResult = await queryFirst<any[]>(TABLES.exams, (table) =>
     client.from(table).select('NgaySoan').order('NgaySoan', { ascending: true }),
@@ -115,7 +140,6 @@ export async function fetchDashboardData() {
     usersByRole: [
       { role: 'Admin', count: roleCounts.admin || 0 },
       { role: 'Giảng viên', count: roleCounts.lecturer || 0 },
-      { role: 'Sinh viên', count: roleCounts.student || 0 },
     ],
     examsByMonth,
     recentActivities: [],
@@ -125,26 +149,59 @@ export async function fetchDashboardData() {
 export async function fetchUsers() {
   const client = getClient();
   const usersResult = await queryFirst<any[]>(TABLES.users, (table) => client.from(table).select('*').order('NgayTao', { ascending: false }));
-  const rolesResult = await queryFirst<any[]>(TABLES.roles, (table) => client.from(table).select('MaVaiTro,TenVaiTro'));
-  const roleMap = new Map((rolesResult.data || []).map((r: any) => [r.MaVaiTro, r.TenVaiTro]));
+  const rolesResult = await queryFirst<any[]>(TABLES.roles, (table) => client.from(table).select('*'));
+  const roleMap = new Map((rolesResult.data || []).map((r: any) => [getField(r, ['MaVaiTro', 'maVaiTro', 'mavaitro']), getField(r, ['TenVaiTro', 'tenVaiTro', 'tenvaitro'])]));
 
-  return (usersResult.data || []).map((u: any) => ({
-    id: u.MaNguoiDung,
-    fullName: u.HoTen || '',
-    email: u.Email || '',
-    phone: u.SoDienThoai || '',
-    role: normalizeRole(roleMap.get(u.MaVaiTro)),
-    status: normalizeStatus(u.TrangThai),
-    createdAt: formatDate(u.NgayTao),
-    roleId: u.MaVaiTro,
-    username: u.TenDangNhap,
-  }));
+  return (usersResult.data || [])
+    .map((u: any) => {
+      const role = normalizeRole(roleMap.get(u.MaVaiTro) || u.MaVaiTro);
+      return {
+        id: u.MaNguoiDung,
+        fullName: u.HoTen || '',
+        email: u.Email || '',
+        phone: u.SoDienThoai || '',
+        role,
+        status: normalizeStatus(u.TrangThai),
+        createdAt: formatDate(u.NgayTao),
+        roleId: u.MaVaiTro,
+        username: u.TenDangNhap,
+      };
+    })
+    .filter((u) => !!u.role);
 }
 
 export async function fetchRoleOptions() {
   const client = getClient();
-  const rolesResult = await queryFirst<any[]>(TABLES.roles, (table) => client.from(table).select('MaVaiTro,TenVaiTro'));
-  return (rolesResult.data || []).map((r: any) => ({ value: r.MaVaiTro, label: r.TenVaiTro || r.MaVaiTro }));
+  const rolesResult = await queryFirst<any[]>(TABLES.roles, (table) => client.from(table).select('*'));
+  const options = (rolesResult.data || [])
+    .map((r: any) => {
+      const value = getField(r, ['MaVaiTro', 'maVaiTro', 'mavaitro']);
+      if (!value) return null;
+      if (!normalizeRole(String(value))) return null;
+      const label = getField(r, ['TenVaiTro', 'tenVaiTro', 'tenvaitro']) || value;
+      return { value, label };
+    })
+    .filter(Boolean) as Array<{ value: string; label: string }>;
+
+  return options.length > 0 ? options : DEFAULT_ROLE_OPTIONS;
+}
+
+export async function fetchCurrentUserRole(authUserId: string, email?: string | null): Promise<AppRole | null> {
+  const client = getClient();
+  const usersResult = await queryFirst<any[]>(TABLES.users, (table) => client.from(table).select('*'));
+  const users = usersResult.data || [];
+
+  const byAuthId = users.find((u: any) => String(getField(u, ['auth_user_id'])) === String(authUserId));
+  const byEmail = users.find((u: any) => {
+    const rowEmail = String(getField(u, ['Email', 'email']) || '').toLowerCase();
+    return !!email && rowEmail === email.toLowerCase();
+  });
+  const matchedUser = byAuthId || byEmail;
+  if (!matchedUser) return null;
+
+  const roleId = getField(matchedUser, ['MaVaiTro', 'maVaiTro', 'mavaitro']);
+  if (!roleId) return null;
+  return normalizeRole(String(roleId));
 }
 
 export async function saveUser(payload: {
@@ -168,9 +225,14 @@ export async function saveUser(payload: {
   } as any;
 
   if (payload.id) {
-    const updateResult = await queryFirst<any[]>(TABLES.users, async (table) =>
-      client.from(table).update(base).eq('MaNguoiDung', payload.id).select('MaNguoiDung'),
-    );
+    let updateResult;
+    try {
+      updateResult = await queryFirst<any[]>(TABLES.users, async (table) =>
+        client.from(table).update(base).eq('MaNguoiDung', payload.id).select('MaNguoiDung'),
+      );
+    } catch (error: any) {
+      throw toAppError(error);
+    }
     return updateResult.data;
   }
 
@@ -184,13 +246,22 @@ export async function saveUser(payload: {
     NgayTao: now,
   };
 
-  const insertResult = await queryFirst<any[]>(TABLES.users, async (table) => client.from(table).insert(insertData).select('MaNguoiDung'));
+  let insertResult;
+  try {
+    insertResult = await queryFirst<any[]>(TABLES.users, async (table) => client.from(table).insert(insertData).select('MaNguoiDung'));
+  } catch (error: any) {
+    throw toAppError(error);
+  }
   return insertResult.data;
 }
 
 export async function deleteUser(userId: string) {
   const client = getClient();
-  await queryFirst<any[]>(TABLES.users, (table) => client.from(table).delete().eq('MaNguoiDung', userId).select('MaNguoiDung'));
+  try {
+    await queryFirst<any[]>(TABLES.users, (table) => client.from(table).delete().eq('MaNguoiDung', userId).select('MaNguoiDung'));
+  } catch (error: any) {
+    throw toAppError(error);
+  }
 }
 
 export async function fetchSubjects() {
@@ -358,9 +429,13 @@ export async function fetchSystemParams() {
 export async function saveSystemParams(rows: Array<{ MaThamSo: string; GiaTri: string | number }>) {
   const client = getClient();
   const payload = rows.map((r) => ({ MaThamSo: r.MaThamSo, GiaTri: String(r.GiaTri) }));
-  await queryFirst<any[]>(TABLES.params, (table) =>
-    client.from(table).upsert(payload, { onConflict: 'MaThamSo' }).select('MaThamSo'),
-  );
+  try {
+    await queryFirst<any[]>(TABLES.params, (table) =>
+      client.from(table).upsert(payload, { onConflict: 'MaThamSo' }).select('MaThamSo'),
+    );
+  } catch (error: any) {
+    throw toAppError(error);
+  }
 }
 
 export async function saveAcademicYear(payload: {
@@ -380,5 +455,9 @@ export async function saveAcademicYear(payload: {
     NgayKetThuc: payload.ngayKetThuc || null,
     TrangThai: payload.trangThai || 'active',
   };
-  await queryFirst<any[]>(TABLES.semesters, (table) => client.from(table).insert(row).select('MaHocKyNamHoc'));
+  try {
+    await queryFirst<any[]>(TABLES.semesters, (table) => client.from(table).insert(row).select('MaHocKyNamHoc'));
+  } catch (error: any) {
+    throw toAppError(error);
+  }
 }
