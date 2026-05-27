@@ -1,0 +1,61 @@
+@import './tokens.css';
+
+@import "tailwindcss";
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  font-size: 16px;
+}
+
+body {
+  margin: 0;
+
+  min-height: 100vh;
+
+  background: var(--bg-primary);
+
+  color: var(--text-primary);
+
+  font-family:
+    Inter,
+    Roboto,
+    Helvetica,
+    Arial,
+    sans-serif;
+
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+@media print {
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+
+  /* Remove all shadow styling for clean print output */
+  *,
+  *::before,
+  *::after {
+    box-shadow: none !important;
+    text-shadow: none !important;
+    background-image: none !important;
+    transition: none !important;
+  }
+
+  /* Hide scrollbars during print */
+  ::-webkit-scrollbar {
+    display: none !important;
+  }
+}
+   

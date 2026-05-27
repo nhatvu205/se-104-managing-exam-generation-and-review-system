@@ -1,0 +1,68 @@
+:root {
+  /* =========================
+     COLORS
+  ========================== */
+
+  --bg-primary: #F5F5F3;
+  --bg-secondary: #ECECE8;
+
+  --surface-primary: #FFFFFF;
+  --surface-secondary: #F7F7F5;
+
+  --text-primary: #1F2937;
+  --text-secondary: #4B5563;
+  --text-muted: #6B7280;
+
+  --accent-primary: #2563EB;
+  --accent-hover: #1D4ED8;
+  --accent-soft: #DBEAFE;
+
+  --success: #16A34A;
+  --success-bg: #DCFCE7;
+
+  --warning: #D97706;
+  --warning-bg: #FEF3C7;
+
+  --danger: #DC2626;
+  --danger-bg: #FEE2E2;
+
+  --info: #0891B2;
+  --info-bg: #CFFAFE;
+
+  --border-primary: #E5E7EB;
+  --border-secondary: #D1D5DB;
+
+  /* =========================
+     SPACING
+  ========================== */
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+
+  /* =========================
+     RADIUS
+  ========================== */
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+
+  /* =========================
+     SHADOW
+  ========================== */
+
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.06);
+
+  /* =========================
+     TRANSITION
+  ========================== */
+
+  --transition-fast: 0.2s ease;
+}

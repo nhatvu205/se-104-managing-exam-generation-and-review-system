@@ -1,0 +1,71 @@
+@media print {
+  /* Hide interactive layout elements */
+  header,
+  footer,
+  aside,
+  nav,
+  .no-print,
+  .print-toolbar,
+  .sidebar,
+  .topbar,
+  button,
+  input,
+  select,
+  textarea {
+    display: none !important;
+  }
+
+  /* Reset layout for full page print */
+  body,
+  html,
+  #root,
+  main,
+  .app-container {
+    background: #ffffff !important;
+    color: #000000 !important;
+    width: 100% !important;
+    height: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+    overflow: visible !important;
+  }
+
+  /* Question formatting */
+  .printable-exam-container {
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 20px !important;
+    background: #ffffff !important;
+  }
+
+  .printable-question-card {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    border: none !important;
+    border-bottom: 1px solid #e2e8f0 !important;
+    padding-bottom: 1.5rem !important;
+    margin-bottom: 1.5rem !important;
+  }
+
+  .printable-answers-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 0.5rem !important;
+  }
+
+  /* Force light backgrounds for print badges if any remain */
+  .badge {
+    border: 1px solid #cbd5e1 !important;
+    background: transparent !important;
+    color: #000000 !important;
+  }
+
+  /* Ensure page titles print nicely */
+  h1, h2, h3, h4, h5, h6 {
+    page-break-after: avoid !important;
+    break-after: avoid !important;
+    color: #000000 !important;
+  }
+}
