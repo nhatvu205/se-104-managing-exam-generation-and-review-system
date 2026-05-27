@@ -28,6 +28,8 @@ type QueryResult<T> = {
   table: string;
 };
 
+type RunnerResponse<T> = PromiseLike<{ data: T | null; error: any }> | { data: T | null; error: any };
+
 function getClient() {
   if (!supabase) {
     throw new Error('Thiếu cấu hình Supabase. Vui lòng set VITE_SUPABASE_URL và VITE_SUPABASE_ANON_KEY.');
@@ -40,7 +42,7 @@ function isMissingRelation(error: any) {
   return code === '42P01' || code === 'PGRST205';
 }
 
-async function queryFirst<T>(candidates: Candidate, runner: (table: string) => Promise<{ data: T | null; error: any }>): Promise<QueryResult<T>> {
+async function queryFirst<T>(candidates: Candidate, runner: (table: string) => RunnerResponse<T>): Promise<QueryResult<T>> {
   let lastError: any;
   for (const table of candidates) {
     const { data, error } = await runner(table);
