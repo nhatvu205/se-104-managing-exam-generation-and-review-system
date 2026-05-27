@@ -1,1 +1,7 @@
 .claude/
+.env
+data/
+node_modules/
+dist/
+.vite/
+AGENT.md

@@ -45,6 +45,10 @@ body {
   line-height: 1.5;
 }
 
+#root {
+  min-height: 100vh;
+}
+
 a {
   color: var(--accent-primary);
   text-decoration: none;
@@ -70,7 +74,7 @@ p {
 }
 
 .sidebar {
-  background: var(--surface-primary);
+  background: linear-gradient(180deg, #ffffff 0%, #fbfcff 100%);
   border-right: 1px solid var(--border);
   padding: 24px 16px;
   position: sticky;
@@ -80,7 +84,8 @@ p {
 
 .brand {
   font-size: 20px;
-  font-weight: 600;
+  font-weight: 700;
+  letter-spacing: 0.2px;
   margin-bottom: 24px;
 }
 
@@ -98,11 +103,12 @@ p {
   border-radius: var(--radius-md);
   color: var(--text-secondary);
   font-weight: 500;
+  transition: all 0.2s ease;
 }
 
 .nav-link:hover,
 .nav-link.active {
-  background: var(--accent-soft);
+  background: #eff6ff;
   color: var(--accent-primary);
   text-decoration: none;
 }
@@ -114,7 +120,8 @@ p {
 .topbar {
   height: 72px;
   border-bottom: 1px solid var(--border);
-  background: var(--surface-primary);
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -149,7 +156,7 @@ p {
   background: var(--surface-primary);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-soft);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
   padding: 24px;
 }
 
@@ -237,6 +244,10 @@ a:focus {
 }
 
 .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   min-height: 44px;
   padding: 10px 16px;
   border-radius: var(--radius-md);
@@ -245,6 +256,7 @@ a:focus {
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s ease;
+  text-decoration: none;
 }
 
 .btn:disabled {
@@ -269,11 +281,18 @@ a:focus {
 
 .btn-secondary:hover {
   background: var(--surface-secondary);
+  text-decoration: none;
 }
 
 .btn-tertiary {
   background: transparent;
   color: var(--text-muted);
+  text-decoration: none;
+}
+
+.btn-tertiary:hover {
+  background: var(--surface-secondary);
+  text-decoration: none;
 }
 
 .badge {
@@ -310,6 +329,7 @@ a:focus {
   overflow: auto;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
+  background: #fff;
 }
 
 table {
@@ -331,10 +351,11 @@ td {
   padding: 12px 16px;
   border-bottom: 1px solid var(--border);
   font-size: 14px;
+  vertical-align: top;
 }
 
 tbody tr:hover {
-  background: var(--bg-primary);
+  background: #fafafa;
 }
 
 .kpi {
@@ -391,6 +412,33 @@ tbody tr:hover {
   margin-bottom: 24px;
 }
 
+.auth-footer {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.auth-footer-text {
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.notice {
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  padding: 14px 16px;
+}
+
+.notice-success {
+  background: var(--success-bg);
+  border-color: #86efac;
+  color: #166534;
+}
+
 .error-layout {
   min-height: 100vh;
   display: grid;
@@ -414,6 +462,32 @@ tbody tr:hover {
   display: flex;
   gap: 12px;
   flex-wrap: wrap;
+}
+
+.section-title {
+  font-size: 20px;
+  font-weight: 600;
+  margin-bottom: 16px;
+}
+
+.mt-16 {
+  margin-top: 16px;
+}
+
+.mb-16 {
+  margin-bottom: 16px;
+}
+
+.mt-12 {
+  margin-top: 12px;
+}
+
+.mt-8 {
+  margin-top: 8px;
+}
+
+.actions-center {
+  justify-content: center;
 }
 
 @media (max-width: 1024px) {
@@ -462,26 +536,50 @@ tbody tr:hover {
   .btn {
     min-height: 48px;
   }
-}
 
-.section-title {
-  font-size: 20px;
-  font-weight: 600;
-  margin-bottom: 16px;
-}
+  .table-wrap {
+    border: 0;
+    background: transparent;
+  }
 
-.mt-16 {
-  margin-top: 16px;
-}
+  table,
+  thead,
+  tbody,
+  th,
+  td,
+  tr {
+    display: block;
+  }
 
-.mb-16 {
-  margin-bottom: 16px;
-}
+  table {
+    min-width: 0;
+  }
 
-.mt-12 {
-  margin-top: 12px;
-}
+  thead {
+    display: none;
+  }
 
-.actions-center {
-  justify-content: center;
+  tbody tr {
+    margin-bottom: 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background: #fff;
+    padding: 4px 0;
+  }
+
+  tbody td {
+    border: 0;
+    padding: 10px 12px;
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  tbody td::before {
+    content: attr(data-label);
+    color: var(--text-muted);
+    font-weight: 600;
+    font-size: 12px;
+    flex-shrink: 0;
+  }
 }
