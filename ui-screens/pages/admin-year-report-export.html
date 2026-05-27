@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>A13 - Báo cáo năm – Xem & Xuất</title>
+    <link rel="stylesheet" href="../styles/design-system.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar" aria-label="Điều hướng Admin">
+        <div class="brand">Exam System</div>
+        <ul class="nav-list">
+          <li><a class="nav-link" href="#">Dashboard</a></li>
+          <li><a class="nav-link active" href="#">Báo cáo năm</a></li>
+          <li><a class="nav-link" href="#">Môn học</a></li>
+        </ul>
+      </aside>
+
+      <div class="main">
+        <header class="topbar">
+          <strong>Admin Portal</strong>
+          <span class="badge badge-success">Quản trị viên</span>
+        </header>
+
+        <main class="container">
+          <header class="page-header">
+            <div>
+              <h1 class="page-title">Báo cáo năm – Xem & Xuất</h1>
+              <p class="page-subtitle">Thống kê tỉ lệ đề thi và tiến độ chấm theo từng môn.</p>
+            </div>
+            <div class="toolbar">
+              <button class="btn btn-primary" type="button">Xuất PDF</button>
+              <button class="btn btn-secondary" type="button">Xuất CSV</button>
+            </div>
+          </header>
+
+          <section class="card">
+            <div class="form-grid two">
+              <div class="field">
+                <label for="year-filter">Năm học <span class="required">*</span></label>
+                <select class="select" id="year-filter">
+                  <option>2025 - 2026</option>
+                  <option>2024 - 2025</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="semester-filter">Học kỳ</label>
+                <select class="select" id="semester-filter">
+                  <option>Tất cả học kỳ</option>
+                  <option>HK1</option>
+                  <option>HK2</option>
+                </select>
+              </div>
+            </div>
+          </section>
+
+          <section class="grid grid-3">
+            <article class="kpi">
+              <p class="kpi-label">Tổng môn có mở lớp</p>
+              <p class="kpi-value">42</p>
+            </article>
+            <article class="kpi">
+              <p class="kpi-label">Tỉ lệ đề thi đã duyệt</p>
+              <p class="kpi-value">91%</p>
+            </article>
+            <article class="kpi">
+              <p class="kpi-label">Tỉ lệ bài đã chấm</p>
+              <p class="kpi-value">87%</p>
+            </article>
+          </section>
+
+          <section class="card" aria-labelledby="report-table-title">
+            <h2 id="report-table-title" class="section-title">Chi tiết theo môn học</h2>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Môn học</th>
+                    <th>Số lớp</th>
+                    <th>Đề thi đã tạo</th>
+                    <th>Đề đã duyệt</th>
+                    <th>Bài thi đã chấm</th>
+                    <th>Tỉ lệ hoàn tất</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>SE104 - Nhập môn CNPM</td>
+                    <td>8</td>
+                    <td>8/8</td>
+                    <td><span class="badge badge-success">100%</span></td>
+                    <td>356/380</td>
+                    <td><span class="badge badge-warning">93.6%</span></td>
+                  </tr>
+                  <tr>
+                    <td>SE334 - Kiểm thử phần mềm</td>
+                    <td>6</td>
+                    <td>6/6</td>
+                    <td><span class="badge badge-success">100%</span></td>
+                    <td>241/246</td>
+                    <td><span class="badge badge-success">97.9%</span></td>
+                  </tr>
+                  <tr>
+                    <td>SE121 - Cơ sở dữ liệu</td>
+                    <td>7</td>
+                    <td>7/7</td>
+                    <td><span class="badge badge-warning">85.7%</span></td>
+                    <td>278/332</td>
+                    <td><span class="badge badge-warning">83.7%</span></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </main>
+      </div>
+    </div>
+  </body>
+</html>

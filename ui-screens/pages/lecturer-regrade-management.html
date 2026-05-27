@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>G12 - Quản lý phúc khảo</title>
+    <link rel="stylesheet" href="../styles/design-system.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar" aria-label="Điều hướng giảng viên">
+        <div class="brand">Exam System</div>
+        <ul class="nav-list">
+          <li><a class="nav-link" href="#">Dashboard</a></li>
+          <li><a class="nav-link" href="#">Bài thi cần chấm</a></li>
+          <li><a class="nav-link active" href="#">Quản lý phúc khảo</a></li>
+        </ul>
+      </aside>
+
+      <div class="main">
+        <header class="topbar">
+          <strong>Giảng viên: Nguyễn Văn A</strong>
+          <span class="badge badge-warning">5 yêu cầu mới</span>
+        </header>
+
+        <main class="container">
+          <header class="page-header">
+            <div>
+              <h1 class="page-title">Quản lý phúc khảo</h1>
+              <p class="page-subtitle">Đối chiếu điểm gốc, nội dung yêu cầu và cập nhật điểm sau phúc khảo.</p>
+            </div>
+          </header>
+
+          <section class="card">
+            <div class="form-grid two">
+              <div class="field">
+                <label for="regrade-status">Trạng thái yêu cầu</label>
+                <select class="select" id="regrade-status">
+                  <option>Tất cả</option>
+                  <option>Chờ xử lý</option>
+                  <option>Đã hoàn tất</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="regrade-search">Tìm theo MSSV / Họ tên</label>
+                <input class="input" id="regrade-search" placeholder="VD: 22521003" />
+              </div>
+            </div>
+          </section>
+
+          <section class="card" aria-labelledby="regrade-table-title">
+            <h2 id="regrade-table-title" class="section-title">Danh sách yêu cầu phúc khảo</h2>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>MSSV</th>
+                    <th>Họ tên</th>
+                    <th>Câu yêu cầu</th>
+                    <th>Điểm gốc</th>
+                    <th>Điểm sau PK</th>
+                    <th>Lý do sinh viên</th>
+                    <th>Trạng thái</th>
+                    <th>Thao tác</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>22521003</td>
+                    <td>Đặng Quốc Hưng</td>
+                    <td>Câu 2</td>
+                    <td>1.2</td>
+                    <td><input class="input" value="1.7" aria-label="Điểm sau phúc khảo" /></td>
+                    <td>Em có trình bày đúng bước 2 theo rubric.</td>
+                    <td><span class="badge badge-warning">Chờ xử lý</span></td>
+                    <td><button class="btn btn-primary" type="button">Lưu</button></td>
+                  </tr>
+                  <tr>
+                    <td>22521011</td>
+                    <td>Phạm Thị Mai</td>
+                    <td>Câu 4</td>
+                    <td>1.5</td>
+                    <td>1.5</td>
+                    <td>Xin xem lại phần kết luận.</td>
+                    <td><span class="badge badge-success">Đã hoàn tất</span></td>
+                    <td><button class="btn btn-secondary" type="button">Xem lịch sử</button></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </main>
+      </div>
+    </div>
+  </body>
+</html>

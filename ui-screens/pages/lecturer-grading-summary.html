@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>G11 - Kết quả chấm thi – Tổng hợp lớp</title>
+    <link rel="stylesheet" href="../styles/design-system.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar" aria-label="Điều hướng giảng viên">
+        <div class="brand">Exam System</div>
+        <ul class="nav-list">
+          <li><a class="nav-link" href="#">Dashboard</a></li>
+          <li><a class="nav-link" href="#">Danh sách bài thi</a></li>
+          <li><a class="nav-link active" href="#">Tổng hợp điểm lớp</a></li>
+          <li><a class="nav-link" href="#">Phúc khảo</a></li>
+        </ul>
+      </aside>
+
+      <div class="main">
+        <header class="topbar">
+          <strong>Giảng viên: Nguyễn Văn A</strong>
+          <span class="badge badge-info">SE104 - Lớp SE104.01</span>
+        </header>
+
+        <main class="container">
+          <header class="page-header">
+            <div>
+              <h1 class="page-title">Kết quả chấm thi – Tổng hợp lớp</h1>
+              <p class="page-subtitle">Theo dõi điểm từng câu, tổng điểm và trạng thái công bố.</p>
+            </div>
+            <div class="toolbar">
+              <button class="btn btn-secondary" type="button">Xuất CSV</button>
+              <button class="btn btn-primary" type="button">Công bố điểm</button>
+            </div>
+          </header>
+
+          <section class="card">
+            <div class="form-grid two">
+              <div class="field">
+                <label for="exam-select">Đề thi</label>
+                <select class="select" id="exam-select">
+                  <option>Giữa kỳ HK2 - Mã đề GK2-SE104-01</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="search-student">Tìm theo mã sinh viên</label>
+                <input class="input" id="search-student" placeholder="VD: 22521001" />
+              </div>
+            </div>
+          </section>
+
+          <section class="card" aria-labelledby="grading-table-title">
+            <h2 id="grading-table-title" class="section-title">Bảng điểm lớp SE104.01</h2>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>MSSV</th>
+                    <th>Họ tên</th>
+                    <th>Câu 1</th>
+                    <th>Câu 2</th>
+                    <th>Câu 3</th>
+                    <th>Câu 4</th>
+                    <th>Tổng điểm</th>
+                    <th>Xếp loại</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>22521001</td>
+                    <td>Trần Minh Khoa</td>
+                    <td>2.0</td>
+                    <td>2.0</td>
+                    <td>2.5</td>
+                    <td>2.0</td>
+                    <td><strong>8.5</strong></td>
+                    <td><span class="badge badge-success">Giỏi</span></td>
+                  </tr>
+                  <tr>
+                    <td>22521002</td>
+                    <td>Lê Thu Trang</td>
+                    <td>1.5</td>
+                    <td>1.8</td>
+                    <td>2.0</td>
+                    <td>1.7</td>
+                    <td><strong>7.0</strong></td>
+                    <td><span class="badge badge-info">Khá</span></td>
+                  </tr>
+                  <tr>
+                    <td>22521003</td>
+                    <td>Đặng Quốc Hưng</td>
+                    <td>1.0</td>
+                    <td>1.2</td>
+                    <td>1.5</td>
+                    <td>1.0</td>
+                    <td><strong>4.7</strong></td>
+                    <td><span class="badge badge-danger">Yếu</span></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </main>
+      </div>
+    </div>
+  </body>
+</html>
