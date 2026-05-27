@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>A12 - Cài đặt Quy định hệ thống</title>
+    <link rel="stylesheet" href="../styles/design-system.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar" aria-label="Điều hướng Admin">
+        <div class="brand">Exam System</div>
+        <ul class="nav-list">
+          <li><a class="nav-link" href="#">Dashboard</a></li>
+          <li><a class="nav-link" href="#">Quản lý môn học</a></li>
+          <li><a class="nav-link active" href="#">Quy định hệ thống</a></li>
+          <li><a class="nav-link" href="#">Báo cáo năm</a></li>
+        </ul>
+      </aside>
+
+      <div class="main">
+        <header class="topbar">
+          <strong>Admin Portal</strong>
+          <span class="badge badge-success">Quản trị viên</span>
+        </header>
+
+        <main class="container">
+          <header class="page-header">
+            <div>
+              <h1 class="page-title">Cài đặt Quy định hệ thống</h1>
+              <p class="page-subtitle">Điều chỉnh các tham số áp dụng cho toàn bộ năm học hiện tại.</p>
+            </div>
+          </header>
+
+          <form class="grid" action="#" method="post">
+            <section class="card" aria-labelledby="exam-rule-title">
+              <h2 id="exam-rule-title" class="section-title">Quy định đề thi</h2>
+              <div class="form-grid two">
+                <div class="field">
+                  <label for="max-question">Số câu tối đa / đề <span class="required">*</span></label>
+                  <input class="input" id="max-question" type="number" min="1" value="60" required />
+                </div>
+                <div class="field">
+                  <label for="exam-duration">Thời lượng thi (phút) <span class="required">*</span></label>
+                  <input class="input" id="exam-duration" type="number" min="15" value="90" required />
+                </div>
+                <div class="field">
+                  <label for="score-scale">Thang điểm tối đa <span class="required">*</span></label>
+                  <input class="input" id="score-scale" type="number" min="1" max="100" value="10" required />
+                </div>
+                <div class="field">
+                  <label for="max-subject">Số môn tối đa / giảng viên <span class="required">*</span></label>
+                  <input class="input" id="max-subject" type="number" min="1" value="3" required />
+                </div>
+              </div>
+            </section>
+
+            <section class="card" aria-labelledby="grade-convert-title">
+              <h2 id="grade-convert-title" class="section-title">Quy đổi điểm chữ</h2>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Điểm số từ</th>
+                      <th>Đến</th>
+                      <th>Điểm chữ</th>
+                      <th>GPA hệ 4</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td><input class="input" type="number" value="8.5" step="0.1" /></td>
+                      <td><input class="input" type="number" value="10" step="0.1" /></td>
+                      <td><input class="input" value="A" /></td>
+                      <td><input class="input" type="number" value="4.0" step="0.1" /></td>
+                    </tr>
+                    <tr>
+                      <td><input class="input" type="number" value="7.8" step="0.1" /></td>
+                      <td><input class="input" type="number" value="8.4" step="0.1" /></td>
+                      <td><input class="input" value="B+" /></td>
+                      <td><input class="input" type="number" value="3.5" step="0.1" /></td>
+                    </tr>
+                    <tr>
+                      <td><input class="input" type="number" value="7.0" step="0.1" /></td>
+                      <td><input class="input" type="number" value="7.7" step="0.1" /></td>
+                      <td><input class="input" value="B" /></td>
+                      <td><input class="input" type="number" value="3.0" step="0.1" /></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <div class="actions">
+                <button class="btn btn-primary" type="submit">Lưu quy định</button>
+                <button class="btn btn-secondary" type="button">Khôi phục mặc định</button>
+              </div>
+            </section>
+          </form>
+        </main>
+      </div>
+    </div>
+  </body>
+</html>
