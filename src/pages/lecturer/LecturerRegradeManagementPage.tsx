@@ -38,7 +38,6 @@ export default function LecturerRegradeManagementPage() {
       roleBadge={<span className="badge badge-warning">Giảng viên</span>}
       sidebarSubtitle="Portal giảng viên"
       navItems={[
-        { label: 'Dashboard', to: '/lecturer/year-report' },
         { label: 'Tổng hợp điểm lớp', to: '/lecturer/grading-summary' },
         { label: 'Quản lý phúc khảo', to: '/lecturer/regrades', active: true },
         { label: 'Báo cáo năm', to: '/lecturer/year-report' },

@@ -3,7 +3,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import AdminLayout, { PageHeader, Card, StatCard, Btn, PageState, tokens } from '../../layouts/AdminLayout';
 import { fetchDashboardData } from '../../lib/supabaseData';
 
-const PIE_COLORS = ['#2563EB', '#16A34A', '#D97706'];
+const PIE_COLORS = ['#2563EB', '#16A34A'];
 
 export default function AdminDashboard({ onNavigate }) {
   const [stats, setStats] = useState(null);
@@ -68,7 +68,7 @@ export default function AdminDashboard({ onNavigate }) {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16, marginBottom: 24 }}>
         <StatCard label="Tổng số đề thi" value={stats.totalExams} sub="Toàn hệ thống" color="#2563EB" />
         <StatCard label="Bài đã chấm" value={stats.totalGradedSubmissions.toLocaleString()} sub="Toàn hệ thống" color="#16A34A" />
-        <StatCard label="Người dùng" value={stats.totalUsers} sub="Admin/GV/SV" color="#9333EA" />
+        <StatCard label="Người dùng" value={stats.totalUsers} sub="Admin/Giảng viên" color="#9333EA" />
         <StatCard label="Lớp học" value={stats.totalClasses} sub="Đang quản lý" color="#D97706" />
       </div>
 
@@ -98,7 +98,7 @@ export default function AdminDashboard({ onNavigate }) {
               <Tooltip />
             </PieChart>
           </ResponsiveContainer>
-          <p className="field-help">Tỷ trọng người dùng theo vai trò (Admin/Giảng viên/Sinh viên).</p>
+          <p className="field-help">Tỷ trọng người dùng theo vai trò (Admin/Giảng viên).</p>
         </Card>
       </div>
     </AdminLayout>

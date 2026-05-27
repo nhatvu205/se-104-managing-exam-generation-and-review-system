@@ -38,7 +38,6 @@ export default function LecturerGradingSummaryPage() {
       roleBadge={<span className="badge badge-info">Giảng viên</span>}
       sidebarSubtitle="Portal giảng viên"
       navItems={[
-        { label: 'Dashboard', to: '/lecturer/year-report' },
         { label: 'Tổng hợp điểm lớp', to: '/lecturer/grading-summary', active: true },
         { label: 'Quản lý phúc khảo', to: '/lecturer/regrades' },
         { label: 'Báo cáo năm', to: '/lecturer/year-report' },
@@ -57,7 +56,7 @@ export default function LecturerGradingSummaryPage() {
         <>
           <section className="card">
             <div className="form-grid two">
-              <div className="field"><label>Tìm theo mã sinh viên</label><input className="input" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="VD: SV0001" /></div>
+              <div className="field"><label>Tìm theo mã người học</label><input className="input" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="VD: SV0001" /></div>
             </div>
           </section>
 
@@ -65,7 +64,7 @@ export default function LecturerGradingSummaryPage() {
             <h2 className="section-title">Bảng điểm tổng hợp</h2>
             <div className="table-wrap">
               <table>
-                <thead><tr><th>Mã bài</th><th>Mã sinh viên</th><th>Điểm từng câu</th><th>Tổng điểm</th><th>Xếp loại</th></tr></thead>
+                <thead><tr><th>Mã bài</th><th>Mã người học</th><th>Điểm từng câu</th><th>Tổng điểm</th><th>Xếp loại</th></tr></thead>
                 <tbody>
                   {filtered.map((r) => (
                     <tr key={r.id}>

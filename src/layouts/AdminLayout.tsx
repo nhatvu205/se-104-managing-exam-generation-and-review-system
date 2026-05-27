@@ -60,7 +60,7 @@ export default function AdminLayout({
   return (
     <div className="app-shell">
       <aside className="sidebar" aria-label="Điều hướng Admin">
-        <div className="brand">Exam System</div>
+        <div className="brand"><img src="/assets/logo.svg" alt="Exam System" className="brand-logo" /><span>Exam System</span></div>
         <p style={{ margin: '-12px 0 20px', color: tokens.textMuted, fontSize: 13 }}>Ra đề &amp; Chấm thi</p>
 
         <ul className="nav-list">
@@ -78,7 +78,7 @@ export default function AdminLayout({
         </ul>
 
         <div style={{ marginTop: 24, paddingTop: 16, borderTop: `1px solid ${tokens.border}` }}>
-          <Link to="/shared/login" className="btn btn-tertiary">Đăng xuất</Link>
+          <Link to="/shared/logout" className="btn btn-tertiary">Đăng xuất</Link>
         </div>
       </aside>
 

@@ -7,7 +7,6 @@ const PAGE_SIZE = 10;
 const ROLE_LABELS = {
   admin: 'Admin',
   lecturer: 'Giảng viên',
-  student: 'Sinh viên',
 };
 
 const STATUS_LABELS = {
@@ -113,7 +112,6 @@ export default function UserListPage({ onNavigate }) {
               <option value="">Tất cả vai trò</option>
               <option value="admin">Admin</option>
               <option value="lecturer">Giảng viên</option>
-              <option value="student">Sinh viên</option>
             </select>
 
             <select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }} className="select" style={{ maxWidth: 180 }}>
