@@ -96,7 +96,42 @@ function toAppError(error: any) {
   if (/row-level security policy/i.test(message)) {
     return new Error('Bạn chưa có quyền ghi dữ liệu trên Supabase (RLS). Hãy thêm policy INSERT/UPDATE/DELETE hoặc tắt RLS cho bảng liên quan.');
   }
+  if (/auth_user_id/i.test(message) && /column/i.test(message)) {
+    return new Error('Bảng NGUOIDUNG chưa có cột auth_user_id. Hãy chạy SQL ALTER TABLE để thêm cột liên kết auth.users.');
+  }
   return new Error(message);
+}
+
+async function createAuthUserByEdgeFunction(payload: {
+  fullName: string;
+  email: string;
+  roleId: string;
+  password?: string;
+}) {
+  const client = getClient();
+  const { data, error } = await client.functions.invoke('admin-create-user', {
+    body: {
+      fullName: payload.fullName,
+      email: payload.email,
+      roleId: payload.roleId,
+      password: payload.password || '12345678',
+    },
+  });
+
+  if (error) {
+    const msg = error.message || '';
+    if (msg.includes('Failed to send a request to the Edge Function') || msg.includes('FunctionsHttpError')) {
+      throw new Error('Chưa gọi được Edge Function admin-create-user. Hãy deploy function này trên Supabase trước khi thêm người dùng.');
+    }
+    throw new Error(msg || 'Không tạo được tài khoản đăng nhập cho người dùng mới.');
+  }
+
+  const authUserId = data?.userId || data?.id || data?.user?.id;
+  if (!authUserId) {
+    throw new Error('Edge Function admin-create-user không trả về userId hợp lệ.');
+  }
+
+  return String(authUserId);
 }
 
 export async function fetchDashboardData() {
@@ -240,12 +275,14 @@ export async function saveUser(payload: {
 
   const userId = `ND${Date.now()}`;
   const username = payload.email.split('@')[0];
+  const authUserId = await createAuthUserByEdgeFunction(payload);
   const insertData = {
     MaNguoiDung: userId,
     ...base,
     TenDangNhap: username,
     MatKhau: payload.password || '12345678',
     NgayTao: now,
+    auth_user_id: authUserId,
   };
 
   let insertResult;
