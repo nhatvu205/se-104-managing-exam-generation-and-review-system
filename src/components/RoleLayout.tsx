@@ -6,7 +6,7 @@ type NavItem = { label: string; to?: string; active?: boolean };
 export default function RoleLayout({
   title,
   roleBadge,
-  sidebarTitle = 'Exam System',
+  sidebarTitle = 'Hệ thống ra đề và chấm thi',
   sidebarSubtitle,
   navItems,
   children,
@@ -27,7 +27,7 @@ export default function RoleLayout({
           {navItems.map((item) => (
             <li key={item.label}>
               {item.to ? (
-                <NavLink to={item.to} className={({ isActive }) => `nav-link ${isActive || item.active ? 'active' : ''}`}>
+                <NavLink end to={item.to} className={({ isActive }) => `nav-link ${isActive || item.active ? 'active' : ''}`}>
                   {item.label}
                 </NavLink>
               ) : (

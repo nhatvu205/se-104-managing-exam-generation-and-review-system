@@ -18,6 +18,15 @@ import AdminYearReportExportPage from './pages/admin/AdminYearReportExportPage';
 import LecturerGradingSummaryPage from './pages/lecturer/LecturerGradingSummaryPage';
 import LecturerRegradeManagementPage from './pages/lecturer/LecturerRegradeManagementPage';
 import LecturerYearReportPage from './pages/lecturer/LecturerYearReportPage';
+import LecturerQuestionBankPage from './pages/lecturer/LecturerQuestionBankPage';
+import LecturerQuestionFormPage from './pages/lecturer/LecturerQuestionFormPage';
+import LecturerExamListPage from './pages/lecturer/LecturerExamListPage';
+import LecturerExamBuilderPage from './pages/lecturer/LecturerExamBuilderPage';
+import LecturerExamPreviewPage from './pages/lecturer/LecturerExamPreviewPage';
+import LecturerExamExportPage from './pages/lecturer/LecturerExamExportPage';
+import LecturerSearchExamPage from './pages/lecturer/LecturerSearchExamPage';
+import LecturerGradingPage from './pages/lecturer/LecturerGradingPage';
+import LecturerGradingDetailPage from './pages/lecturer/LecturerGradingDetailPage';
 import { supabase } from './lib/supabaseClient';
 import { fetchCurrentUserRole, type AppRole } from './lib/supabaseData';
 import LogoutPage from './pages/shared/LogoutPage';
@@ -159,6 +168,15 @@ export default function App() {
         <Route path="/lecturer" element={<Navigate to="/lecturer/year-report" replace />} />
         <Route path="/lecturer/regrades" element={requireAuth(<LecturerRegradeManagementPage />, 'lecturer')} />
         <Route path="/lecturer/year-report" element={requireAuth(<LecturerYearReportPage />, 'lecturer')} />
+        <Route path="/lecturer/questions" element={requireAuth(<LecturerQuestionBankPage />, 'lecturer')} />
+        <Route path="/lecturer/questions/create" element={requireAuth(<LecturerQuestionFormPage />, 'lecturer')} />
+        <Route path="/lecturer/exams" element={requireAuth(<LecturerExamListPage />, 'lecturer')} />
+        <Route path="/lecturer/exams/create" element={requireAuth(<LecturerExamBuilderPage />, 'lecturer')} />
+        <Route path="/lecturer/exams/:id/preview" element={requireAuth(<LecturerExamPreviewPage />, 'lecturer')} />
+        <Route path="/lecturer/exams/:id/export" element={requireAuth(<LecturerExamExportPage />, 'lecturer')} />
+        <Route path="/lecturer/search" element={requireAuth(<LecturerSearchExamPage />, 'lecturer')} />
+        <Route path="/lecturer/grading" element={requireAuth(<LecturerGradingPage />, 'lecturer')} />
+        <Route path="/lecturer/grading/:id" element={requireAuth(<LecturerGradingDetailPage />, 'lecturer')} />
 
         <Route path="*" element={<Navigate to="/shared/error" replace />} />
       </Routes>

@@ -2,8 +2,11 @@ import { useEffect, useMemo, useState } from 'react';
 import RoleLayout from '../../components/RoleLayout';
 import { Btn, PageState } from '../../layouts/AdminLayout';
 import { fetchSubjects } from '../../lib/supabaseData';
+import { withLecturerActive } from './lecturerNav';
+import { useLecturerIdentity } from './useLecturerIdentity';
 
 export default function LecturerYearReportPage() {
+  const lecturer = useLecturerIdentity();
   const [subjects, setSubjects] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -35,14 +38,10 @@ export default function LecturerYearReportPage() {
 
   return (
     <RoleLayout
-      title="Giảng viên: Nguyễn Văn A"
-      roleBadge={<span className="badge badge-info">Bộ môn Công nghệ phần mềm</span>}
+      title={lecturer.title}
+      roleBadge={lecturer.roleBadge}
       sidebarSubtitle="Portal giảng viên"
-      navItems={[
-        { label: 'Tổng hợp điểm lớp', to: '/lecturer/grading-summary' },
-        { label: 'Quản lý phúc khảo', to: '/lecturer/regrades' },
-        { label: 'Báo cáo năm', to: '/lecturer/year-report', active: true },
-      ]}
+      navItems={withLecturerActive('/lecturer/year-report')}
     >
       <header className="page-header">
         <div>

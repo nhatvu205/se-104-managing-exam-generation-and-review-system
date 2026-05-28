@@ -60,13 +60,14 @@ export default function AdminLayout({
   return (
     <div className="app-shell">
       <aside className="sidebar" aria-label="Điều hướng Admin">
-        <div className="brand"><img src="/assets/logo.svg" alt="Exam System" className="brand-logo" /><span>Exam System</span></div>
+        <div className="brand"><img src="/assets/logo.svg" alt="Hệ thống ra đề và chấm thi" className="brand-logo" /><span>Hệ thống ra đề và chấm thi</span></div>
         <p style={{ margin: '-12px 0 20px', color: tokens.textMuted, fontSize: 13 }}>Ra đề &amp; Chấm thi</p>
 
         <ul className="nav-list">
           {navItems.map((item) => (
             <li key={item.key}>
               <NavLink
+                end
                 to={item.path}
                 className={({ isActive }) => `nav-link ${isActive || activeKey === item.key ? 'active' : ''}`}
                 onClick={() => onNavigate?.(item.key, item.path)}
@@ -84,7 +85,7 @@ export default function AdminLayout({
 
       <div className="main">
         <header className="topbar">
-          <strong>Admin Portal</strong>
+          <strong>Hệ thống ra đề và chấm thi</strong>
           <span className="badge badge-success">Quản trị viên</span>
         </header>
 

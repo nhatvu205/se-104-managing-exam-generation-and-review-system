@@ -2,8 +2,11 @@ import { useEffect, useMemo, useState } from 'react';
 import RoleLayout from '../../components/RoleLayout';
 import { Btn, PageState } from '../../layouts/AdminLayout';
 import { fetchRegrades } from '../../lib/supabaseData';
+import { withLecturerActive } from './lecturerNav';
+import { useLecturerIdentity } from './useLecturerIdentity';
 
 export default function LecturerRegradeManagementPage() {
+  const lecturer = useLecturerIdentity();
   const [rows, setRows] = useState<any[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
@@ -34,14 +37,10 @@ export default function LecturerRegradeManagementPage() {
 
   return (
     <RoleLayout
-      title="Giảng viên: Nguyễn Văn A"
-      roleBadge={<span className="badge badge-warning">Giảng viên</span>}
+      title={lecturer.title}
+      roleBadge={lecturer.roleBadge}
       sidebarSubtitle="Portal giảng viên"
-      navItems={[
-        { label: 'Tổng hợp điểm lớp', to: '/lecturer/grading-summary' },
-        { label: 'Quản lý phúc khảo', to: '/lecturer/regrades', active: true },
-        { label: 'Báo cáo năm', to: '/lecturer/year-report' },
-      ]}
+      navItems={withLecturerActive('/lecturer/regrades')}
     >
       <header className="page-header">
         <div>

@@ -4,7 +4,7 @@ export default function ChangePasswordPage() {
   return (
     <div className="app-shell">
       <aside className="sidebar" aria-label="Điều hướng chính">
-        <div className="brand">Exam System</div>
+        <div className="brand">Hệ thống ra đề và chấm thi</div>
         <ul className="nav-list">
           <li><Link className="nav-link" to="/shared/login">Đăng nhập</Link></li>
           <li><span className="nav-link active">Đổi mật khẩu</span></li>
