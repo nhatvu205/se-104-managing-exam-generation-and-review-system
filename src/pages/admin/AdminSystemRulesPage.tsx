@@ -200,8 +200,10 @@ export default function AdminSystemRulesPage() {
         open={!!deleteTarget}
         title="Xóa tham số"
         message={`Bạn có chắc muốn xóa tham số ${deleteTarget?.MaThamSo || ''}?`}
-        onCancel={() => setDeleteTarget(null)}
-        onConfirm={handleDelete}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={() => {
+          void handleDelete();
+        }}
         confirmLabel="Xóa"
       />
 
