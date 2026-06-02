@@ -68,6 +68,14 @@ async function queryFirst<T>(candidates: Candidate, runner: (table: string) => R
   throw new Error(lastError?.message || 'Không thể truy vấn dữ liệu từ Supabase.');
 }
 
+async function queryFirstSafe<T>(candidates: Candidate, runner: (table: string) => RunnerResponse<T>, fallback: T): Promise<QueryResult<T>> {
+  try {
+    return await queryFirst<T>(candidates, runner);
+  } catch {
+    return { data: fallback, table: candidates[0] };
+  }
+}
+
 async function countRows(candidates: Candidate): Promise<number> {
   const client = getClient();
   const res = await queryFirst<{ count: number }>(candidates, async (table) => {
@@ -127,6 +135,15 @@ function toAppError(error: any) {
     return new Error('Bảng NGUOIDUNG chưa có cột auth_user_id. Hãy chạy SQL ALTER TABLE để thêm cột liên kết auth.users.');
   }
   return new Error(message);
+}
+
+function validateDateRange(startDate?: string | null, endDate?: string | null) {
+  if (!startDate || !endDate) {
+    throw new Error('Ngày bắt đầu và ngày kết thúc là bắt buộc.');
+  }
+  if (startDate > endDate) {
+    throw new Error('Ngày bắt đầu không được lớn hơn ngày kết thúc.');
+  }
 }
 
 async function resolveCurrentDbUserId() {
@@ -379,9 +396,9 @@ export async function fetchSubjects() {
 
   const [subjectsRes, questionsRes, examsRes, classesRes] = await Promise.all([
     queryFirst<any[]>(TABLES.subjects, (table) => client.from(table).select('*').order('MaMonHoc', { ascending: true })),
-    queryFirst<any[]>(TABLES.questions, (table) => client.from(table).select('MaMonHoc')),
-    queryFirst<any[]>(TABLES.exams, (table) => client.from(table).select('MaMonHoc')),
-    queryFirst<any[]>(TABLES.classes, (table) => client.from(table).select('MaMonHoc,MaGiangVien')),
+    queryFirstSafe<any[]>(TABLES.questions, (table) => client.from(table).select('MaMonHoc'), []),
+    queryFirstSafe<any[]>(TABLES.exams, (table) => client.from(table).select('MaMonHoc'), []),
+    queryFirstSafe<any[]>(TABLES.classes, (table) => client.from(table).select('MaMonHoc,MaGiangVien'), []),
   ]);
 
   const questionCount: Record<string, number> = {};
@@ -431,6 +448,11 @@ export async function fetchSemesters() {
   }));
 }
 
+export async function fetchSemesterById(semesterId: string) {
+  const rows = await fetchSemesters();
+  return rows.find((row) => String(row.id) === String(semesterId)) || null;
+}
+
 export async function fetchAcademicYears() {
   const semesters = await fetchSemesters();
   const grouped: Record<string, { name: string; code: string; semesterCount: number; status: 'active' | 'inactive'; startDate: string; endDate: string }> = {};
@@ -459,14 +481,36 @@ export async function fetchAcademicYears() {
   }));
 }
 
+export async function updateAcademicYear(payload: { originalNamHoc: string; namHoc: string }) {
+  const client = getClient();
+  try {
+    await queryFirst<any[]>(TABLES.semesters, (table) =>
+      client.from(table).update({ NamHoc: payload.namHoc }).eq('NamHoc', payload.originalNamHoc).select('MaHocKyNamHoc'),
+    );
+  } catch (error: any) {
+    throw toAppError(error);
+  }
+}
+
+export async function deleteAcademicYear(namHoc: string) {
+  const client = getClient();
+  try {
+    await queryFirst<any[]>(TABLES.semesters, (table) =>
+      client.from(table).delete().eq('NamHoc', namHoc).select('MaHocKyNamHoc'),
+    );
+  } catch (error: any) {
+    throw toAppError(error);
+  }
+}
+
 export async function fetchClasses() {
   const client = getClient();
 
   const [classesRes, subjectsRes, usersRes, semRes] = await Promise.all([
     queryFirst<any[]>(TABLES.classes, (table) => client.from(table).select('*')),
-    queryFirst<any[]>(TABLES.subjects, (table) => client.from(table).select('MaMonHoc,TenMonHoc')),
-    queryFirst<any[]>(TABLES.users, (table) => client.from(table).select('MaNguoiDung,HoTen')),
-    queryFirst<any[]>(TABLES.semesters, (table) => client.from(table).select('MaHocKyNamHoc,TenHocKy,NamHoc')),
+    queryFirstSafe<any[]>(TABLES.subjects, (table) => client.from(table).select('MaMonHoc,TenMonHoc'), []),
+    queryFirstSafe<any[]>(TABLES.users, (table) => client.from(table).select('MaNguoiDung,HoTen'), []),
+    queryFirstSafe<any[]>(TABLES.semesters, (table) => client.from(table).select('MaHocKyNamHoc,TenHocKy,NamHoc'), []),
   ]);
 
   const subjectMap = new Map((subjectsRes.data || []).map((s: any) => [s.MaMonHoc, s.TenMonHoc]));
@@ -479,14 +523,74 @@ export async function fetchClasses() {
       id: c.MaLopHoc,
       code: c.MaLopHoc,
       name: c.TenLopHoc || c.MaLopHoc,
+      subjectCode: c.MaMonHoc || '',
+      lecturerId: c.MaGiangVien || '',
+      semesterCode: c.MaHocKyNamHoc || '',
       subjectName: subjectMap.get(c.MaMonHoc) || c.MaMonHoc,
       lecturerName: userMap.get(c.MaGiangVien) || c.MaGiangVien,
       semesterName: sem?.TenHocKy || '',
       academicYearName: sem?.NamHoc || '',
       studentCount: c.SiSo || 0,
+      room: c.PhongHoc || '',
+      schedule: c.LichHoc || '',
       status: 'active',
     };
   });
+}
+
+export async function fetchClassById(classId: string) {
+  const rows = await fetchClasses();
+  return rows.find((row) => String(row.id) === String(classId)) || null;
+}
+
+export async function fetchLecturerOptions() {
+  const rows = await fetchUsers();
+  return rows
+    .filter((row) => row.role === 'lecturer')
+    .map((row) => ({ value: row.id, label: `${row.id} - ${row.fullName}` }));
+}
+
+export async function saveClass(payload: {
+  id?: string;
+  code: string;
+  name: string;
+  semesterCode: string;
+  subjectCode: string;
+  lecturerId: string;
+  studentCount?: number;
+  room?: string;
+  schedule?: string;
+}) {
+  const client = getClient();
+  const row = {
+    MaLopHoc: payload.code.trim(),
+    TenLopHoc: payload.name.trim(),
+    MaHocKyNamHoc: payload.semesterCode,
+    MaMonHoc: payload.subjectCode,
+    MaGiangVien: payload.lecturerId,
+    SiSo: Number(payload.studentCount || 0),
+    PhongHoc: payload.room?.trim() || null,
+    LichHoc: payload.schedule?.trim() || null,
+  };
+  try {
+    if (payload.id) {
+      await queryFirst<any[]>(TABLES.classes, (table) => client.from(table).update(row).eq('MaLopHoc', payload.id).select('MaLopHoc'));
+      return payload.id;
+    }
+    await queryFirst<any[]>(TABLES.classes, (table) => client.from(table).insert(row).select('MaLopHoc'));
+    return payload.code.trim();
+  } catch (error: any) {
+    throw toAppError(error);
+  }
+}
+
+export async function deleteClass(classId: string) {
+  const client = getClient();
+  try {
+    await queryFirst<any[]>(TABLES.classes, (table) => client.from(table).delete().eq('MaLopHoc', classId).select('MaLopHoc'));
+  } catch (error: any) {
+    throw toAppError(error);
+  }
 }
 
 export async function fetchLecturerSummary() {
@@ -579,6 +683,49 @@ export async function createSubject(payload: {
     if (String(error?.message || '').toLowerCase().includes('duplicate')) {
       throw new Error('Mã môn học đã tồn tại. Vui lòng nhập mã khác.');
     }
+    throw toAppError(error);
+  }
+}
+
+export async function fetchSubjectById(subjectId: string) {
+  const rows = await fetchSubjects();
+  return rows.find((row) => String(row.id) === String(subjectId)) || null;
+}
+
+export async function saveSubject(payload: {
+  id?: string;
+  code: string;
+  name: string;
+  credits?: number;
+  description?: string;
+}) {
+  const client = getClient();
+  const row = {
+    MaMonHoc: payload.code.trim(),
+    TenMonHoc: payload.name.trim(),
+    SoTinChi: Number(payload.credits || 3),
+    MoTa: payload.description?.trim() || null,
+  };
+
+  try {
+    if (payload.id) {
+      await queryFirst<any[]>(TABLES.subjects, (table) =>
+        client.from(table).update(row).eq('MaMonHoc', payload.id).select('MaMonHoc'),
+      );
+      return payload.id;
+    }
+    await queryFirst<any[]>(TABLES.subjects, (table) => client.from(table).insert(row).select('MaMonHoc'));
+    return payload.code.trim();
+  } catch (error: any) {
+    throw toAppError(error);
+  }
+}
+
+export async function deleteSubject(subjectId: string) {
+  const client = getClient();
+  try {
+    await queryFirst<any[]>(TABLES.subjects, (table) => client.from(table).delete().eq('MaMonHoc', subjectId).select('MaMonHoc'));
+  } catch (error: any) {
     throw toAppError(error);
   }
 }
@@ -839,8 +986,16 @@ export async function saveLecturerGradingDetail(payload: {
 
 export async function fetchSystemParams() {
   const client = getClient();
-  const result = await queryFirst<any[]>(TABLES.params, (table) => client.from(table).select('*'));
-  return result.data || [];
+  const result = await queryFirst<any[]>(TABLES.params, (table) => client.from(table).select('*').order('MaThamSo', { ascending: true }));
+  return (result.data || []).map((row: any) => ({
+    MaThamSo: row.MaThamSo || '',
+    TenThamSo: row.TenThamSo || row.MaThamSo || '',
+    GiaTri: row.GiaTri ?? '',
+    KieuDuLieu: row.KieuDuLieu || 'TEXT',
+    NhomThamSo: row.NhomThamSo || '',
+    MoTa: row.MoTa || '',
+    NgayCapNhat: row.NgayCapNhat || '',
+  }));
 }
 
 export async function saveSystemParams(rows: Array<{ MaThamSo: string; GiaTri: string | number }>) {
@@ -855,6 +1010,42 @@ export async function saveSystemParams(rows: Array<{ MaThamSo: string; GiaTri: s
   }
 }
 
+export async function saveSystemParamEntries(rows: Array<{
+  MaThamSo: string;
+  TenThamSo: string;
+  GiaTri: string | number;
+  KieuDuLieu?: string;
+  NhomThamSo?: string;
+  MoTa?: string;
+}>) {
+  const client = getClient();
+  const payload = rows.map((row) => ({
+    MaThamSo: row.MaThamSo.trim(),
+    TenThamSo: row.TenThamSo.trim(),
+    GiaTri: String(row.GiaTri ?? ''),
+    KieuDuLieu: row.KieuDuLieu?.trim() || 'TEXT',
+    NhomThamSo: row.NhomThamSo?.trim() || null,
+    MoTa: row.MoTa?.trim() || null,
+    NgayCapNhat: new Date().toISOString().slice(0, 10),
+  }));
+  try {
+    await queryFirst<any[]>(TABLES.params, (table) =>
+      client.from(table).upsert(payload, { onConflict: 'MaThamSo' }).select('MaThamSo'),
+    );
+  } catch (error: any) {
+    throw toAppError(error);
+  }
+}
+
+export async function deleteSystemParam(paramId: string) {
+  const client = getClient();
+  try {
+    await queryFirst<any[]>(TABLES.params, (table) => client.from(table).delete().eq('MaThamSo', paramId).select('MaThamSo'));
+  } catch (error: any) {
+    throw toAppError(error);
+  }
+}
+
 export async function saveAcademicYear(payload: {
   namHoc: string;
   tenHocKy: string;
@@ -863,6 +1054,7 @@ export async function saveAcademicYear(payload: {
   trangThai?: string;
 }) {
   const client = getClient();
+  validateDateRange(payload.ngayBatDau, payload.ngayKetThuc);
   const id = `HKNH_${Date.now()}`;
   const row = {
     MaHocKyNamHoc: id,
@@ -874,6 +1066,51 @@ export async function saveAcademicYear(payload: {
   };
   try {
     await queryFirst<any[]>(TABLES.semesters, (table) => client.from(table).insert(row).select('MaHocKyNamHoc'));
+  } catch (error: any) {
+    throw toAppError(error);
+  }
+}
+
+export async function saveSemester(payload: {
+  id?: string;
+  code: string;
+  name: string;
+  academicYearName: string;
+  startDate?: string;
+  endDate?: string;
+  status?: string;
+}) {
+  const client = getClient();
+  validateDateRange(payload.startDate, payload.endDate);
+  const row = {
+    MaHocKyNamHoc: payload.code.trim(),
+    TenHocKy: payload.name.trim(),
+    NamHoc: payload.academicYearName.trim(),
+    NgayBatDau: payload.startDate || null,
+    NgayKetThuc: payload.endDate || null,
+    TrangThai: payload.status || 'active',
+  };
+
+  try {
+    if (payload.id) {
+      await queryFirst<any[]>(TABLES.semesters, (table) =>
+        client.from(table).update(row).eq('MaHocKyNamHoc', payload.id).select('MaHocKyNamHoc'),
+      );
+      return payload.id;
+    }
+    await queryFirst<any[]>(TABLES.semesters, (table) => client.from(table).insert(row).select('MaHocKyNamHoc'));
+    return payload.code.trim();
+  } catch (error: any) {
+    throw toAppError(error);
+  }
+}
+
+export async function deleteSemester(semesterId: string) {
+  const client = getClient();
+  try {
+    await queryFirst<any[]>(TABLES.semesters, (table) =>
+      client.from(table).delete().eq('MaHocKyNamHoc', semesterId).select('MaHocKyNamHoc'),
+    );
   } catch (error: any) {
     throw toAppError(error);
   }

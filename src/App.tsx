@@ -8,6 +8,8 @@ import { AcademicYearFormPage, AcademicYearListPage } from './pages/admin/A04_A0
 import { SemesterListPage } from './pages/admin/A06_A07_Semester';
 import { ClassListPage } from './pages/admin/A08_A09_ClassManagement';
 import SubjectListPage from './pages/admin/A10_SubjectList';
+import AdminSemesterFormPage from './pages/admin/AdminSemesterFormPage';
+import AdminClassFormPage from './pages/admin/AdminClassFormPage';
 import LoginPage from './pages/shared/LoginPage';
 import RegisterPage from './pages/shared/RegisterPage';
 import ChangePasswordPage from './pages/shared/ChangePasswordPage';
@@ -158,7 +160,9 @@ export default function App() {
         <Route path="/admin/academic-years" element={requireAuth(<YearListRoute />, 'admin')} />
         <Route path="/admin/academic-years/create" element={requireAuth(<YearCreateRoute />, 'admin')} />
         <Route path="/admin/semesters" element={requireAuth(<SemesterListRoute />, 'admin')} />
+        <Route path="/admin/semesters/form" element={requireAuth(<AdminSemesterFormPage />, 'admin')} />
         <Route path="/admin/classes" element={requireAuth(<ClassListRoute />, 'admin')} />
+        <Route path="/admin/classes/form" element={requireAuth(<AdminClassFormPage />, 'admin')} />
         <Route path="/admin/subjects" element={requireAuth(<SubjectListRoute />, 'admin')} />
         <Route path="/admin/subjects/form" element={requireAuth(<AdminSubjectFormPage />, 'admin')} />
         <Route path="/admin/system-rules" element={requireAuth(<AdminSystemRulesPage />, 'admin')} />

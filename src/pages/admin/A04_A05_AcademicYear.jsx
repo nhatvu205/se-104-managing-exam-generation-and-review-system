@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import AdminLayout, { PageHeader, Card, Btn, Badge, Table, Pagination, Input, Select, Toast, PageState, tokens } from '../../layouts/AdminLayout';
-import { fetchAcademicYears, saveAcademicYear } from '../../lib/supabaseData';
+import AdminLayout, { PageHeader, Card, Btn, Badge, ConfirmDialog, Modal, Table, Pagination, Input, Select, Toast, PageState, tokens } from '../../layouts/AdminLayout';
+import { deleteAcademicYear, fetchAcademicYears, saveAcademicYear, updateAcademicYear } from '../../lib/supabaseData';
 
 const PAGE_SIZE = 10;
 
@@ -11,6 +11,9 @@ export function AcademicYearListPage({ onNavigate }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [toast, setToast] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [editTarget, setEditTarget] = useState(null);
+  const [editValue, setEditValue] = useState('');
 
   const load = async () => {
     setLoading(true);
@@ -38,6 +41,31 @@ export function AcademicYearListPage({ onNavigate }) {
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    try {
+      await deleteAcademicYear(deleteTarget.code);
+      setToast({ message: `Đã xóa năm học ${deleteTarget.name}`, type: 'success' });
+      setDeleteTarget(null);
+      await load();
+    } catch (e) {
+      setToast({ message: e.message || 'Không xóa được năm học', type: 'error' });
+    }
+  };
+
+  const handleRename = async () => {
+    if (!editTarget || !editValue.trim()) return;
+    try {
+      await updateAcademicYear({ originalNamHoc: editTarget.code, namHoc: editValue.trim() });
+      setToast({ message: 'Đã cập nhật năm học.', type: 'success' });
+      setEditTarget(null);
+      setEditValue('');
+      await load();
+    } catch (e) {
+      setToast({ message: e.message || 'Không cập nhật được năm học', type: 'error' });
+    }
+  };
+
   const columns = [
     { key: 'code', label: 'Mã/Năm học' },
     { key: 'name', label: 'Năm học' },
@@ -45,6 +73,16 @@ export function AcademicYearListPage({ onNavigate }) {
     { key: 'startDate', label: 'Bắt đầu' },
     { key: 'endDate', label: 'Kết thúc' },
     { key: 'status', label: 'Trạng thái', render: (v) => <Badge label={v === 'active' ? 'Đang hoạt động' : 'Không hoạt động'} color={v} /> },
+    {
+      key: 'actions',
+      label: 'Thao tác',
+      render: (_, row) => (
+        <div style={{ display: 'flex', gap: 8 }}>
+          <Btn size="sm" variant="secondary" onClick={() => { setEditTarget(row); setEditValue(row.name || ''); }}>Sửa tên</Btn>
+          <Btn size="sm" variant="danger" onClick={() => setDeleteTarget(row)}>Xóa</Btn>
+        </div>
+      ),
+    },
   ];
 
   return (
@@ -71,6 +109,32 @@ export function AcademicYearListPage({ onNavigate }) {
       )}
 
       {toast && <Toast message={toast.message} type={toast.type} onDismiss={() => setToast(null)} />}
+      <ConfirmDialog
+        open={!!deleteTarget}
+        title="Xóa năm học"
+        message={`Bạn có chắc muốn xóa toàn bộ học kỳ thuộc năm học ${deleteTarget?.name || ''}?`}
+        onCancel={() => setDeleteTarget(null)}
+        onConfirm={handleDelete}
+        confirmLabel="Xóa"
+      />
+      <Modal
+        open={!!editTarget}
+        onClose={() => { setEditTarget(null); setEditValue(''); }}
+        title="Đổi tên năm học"
+        footer={(
+          <>
+            <Btn variant="secondary" onClick={() => { setEditTarget(null); setEditValue(''); }}>Hủy</Btn>
+            <Btn variant="primary" onClick={handleRename}>Lưu</Btn>
+          </>
+        )}
+      >
+        <div className="form-grid">
+          <div className="field">
+            <label>Tên năm học mới</label>
+            <input className="input" value={editValue} onChange={(e) => setEditValue(e.target.value)} />
+          </div>
+        </div>
+      </Modal>
     </AdminLayout>
   );
 }
@@ -118,8 +182,8 @@ export function AcademicYearFormPage({ onNavigate }) {
             onChange={set('tenHocKy')}
             options={[{ value: 'HK1', label: 'HK1' }, { value: 'HK2', label: 'HK2' }, { value: 'HK hè', label: 'HK hè' }]}
           />
-          <Input label="Ngày bắt đầu" type="date" value={form.ngayBatDau} onChange={set('ngayBatDau')} />
-          <Input label="Ngày kết thúc" type="date" value={form.ngayKetThuc} onChange={set('ngayKetThuc')} />
+          <Input label="Ngày bắt đầu" required type="date" value={form.ngayBatDau} onChange={set('ngayBatDau')} />
+          <Input label="Ngày kết thúc" required type="date" value={form.ngayKetThuc} onChange={set('ngayKetThuc')} />
           <Select
             label="Trạng thái"
             value={form.trangThai}

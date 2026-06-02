@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import AdminLayout, { PageHeader, Card, Btn, SearchInput, Table, Pagination, Toast, PageState, tokens } from '../../layouts/AdminLayout';
-import { fetchSubjects } from '../../lib/supabaseData';
+import AdminLayout, { PageHeader, Card, Btn, ConfirmDialog, SearchInput, Table, Pagination, Toast, PageState, tokens } from '../../layouts/AdminLayout';
+import { deleteSubject, fetchSubjects } from '../../lib/supabaseData';
 
 const PAGE_SIZE = 10;
 
@@ -11,6 +11,7 @@ export default function SubjectListPage({ onNavigate }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [toast, setToast] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
 
   const load = async () => {
     setLoading(true);
@@ -38,6 +39,18 @@ export default function SubjectListPage({ onNavigate }) {
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    try {
+      await deleteSubject(deleteTarget.id);
+      setToast({ message: `Đã xóa môn học ${deleteTarget.code}`, type: 'success' });
+      setDeleteTarget(null);
+      await load();
+    } catch (e) {
+      setToast({ message: e.message || 'Không xóa được môn học', type: 'error' });
+    }
+  };
+
   const columns = [
     { key: 'code', label: 'Mã môn' },
     { key: 'name', label: 'Tên môn học' },
@@ -49,8 +62,8 @@ export default function SubjectListPage({ onNavigate }) {
       label: 'Thao tác',
       render: (_, row) => (
         <div style={{ display: 'flex', gap: 8 }}>
-          <Btn size="sm" variant="secondary" onClick={() => onNavigate('subjects-form', '/admin/subjects/form')}>Xem/Sửa</Btn>
-          <Btn size="sm" variant="ghost" style={{ color: '#DC2626' }} disabled={row.examCount > 0 || row.questionCount > 0}>Xóa</Btn>
+          <Btn size="sm" variant="secondary" onClick={() => onNavigate('subjects-form', `/admin/subjects/form?id=${row.id}`)}>Sửa</Btn>
+          <Btn size="sm" variant="danger" disabled={row.examCount > 0 || row.questionCount > 0} onClick={() => setDeleteTarget(row)}>Xóa</Btn>
         </div>
       ),
     },
@@ -89,6 +102,14 @@ export default function SubjectListPage({ onNavigate }) {
       )}
 
       {toast && <Toast message={toast.message} type={toast.type} onDismiss={() => setToast(null)} />}
+      <ConfirmDialog
+        open={!!deleteTarget}
+        title="Xóa môn học"
+        message={`Bạn có chắc muốn xóa môn học ${deleteTarget?.code || ''}?`}
+        onCancel={() => setDeleteTarget(null)}
+        onConfirm={handleDelete}
+        confirmLabel="Xóa"
+      />
     </AdminLayout>
   );
 }

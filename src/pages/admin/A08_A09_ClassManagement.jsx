@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import AdminLayout, { PageHeader, Card, Badge, Input, Table, Pagination, Toast, PageState, Btn, tokens } from '../../layouts/AdminLayout';
-import { fetchClasses } from '../../lib/supabaseData';
+import AdminLayout, { PageHeader, Card, Badge, ConfirmDialog, Input, Table, Pagination, Toast, PageState, Btn, tokens } from '../../layouts/AdminLayout';
+import { deleteClass, fetchClasses } from '../../lib/supabaseData';
 
 const PAGE_SIZE = 10;
 
@@ -11,6 +11,7 @@ export function ClassListPage({ onNavigate }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [toast, setToast] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
 
   const load = async () => {
     setLoading(true);
@@ -38,6 +39,18 @@ export function ClassListPage({ onNavigate }) {
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    try {
+      await deleteClass(deleteTarget.id);
+      setToast({ message: `Đã xóa lớp ${deleteTarget.code}`, type: 'success' });
+      setDeleteTarget(null);
+      await load();
+    } catch (e) {
+      setToast({ message: e.message || 'Không xóa được lớp học', type: 'error' });
+    }
+  };
+
   const columns = [
     { key: 'code', label: 'Mã lớp' },
     { key: 'name', label: 'Tên lớp' },
@@ -46,11 +59,25 @@ export function ClassListPage({ onNavigate }) {
     { key: 'academicYearName', label: 'Năm học' },
     { key: 'studentCount', label: 'Sĩ số' },
     { key: 'status', label: 'Trạng thái', render: (v) => <Badge label={v === 'active' ? 'Đang hoạt động' : 'Không hoạt động'} color={v} /> },
+    {
+      key: 'actions',
+      label: 'Thao tác',
+      render: (_, row) => (
+        <div style={{ display: 'flex', gap: 8 }}>
+          <Btn size="sm" variant="secondary" onClick={() => onNavigate('classes-form', `/admin/classes/form?id=${row.id}`)}>Sửa</Btn>
+          <Btn size="sm" variant="danger" onClick={() => setDeleteTarget(row)}>Xóa</Btn>
+        </div>
+      ),
+    },
   ];
 
   return (
     <AdminLayout activeKey="classes-list" breadcrumbs={['Dashboard', 'Lớp học']} onNavigate={onNavigate}>
-      <PageHeader title="Quản lý Lớp học" subtitle={loading ? 'Đang tải dữ liệu...' : `${filtered.length} lớp học`} />
+      <PageHeader
+        title="Quản lý Lớp học"
+        subtitle={loading ? 'Đang tải dữ liệu...' : `${filtered.length} lớp học`}
+        actions={<Btn variant="primary" onClick={() => onNavigate('classes-form', '/admin/classes/form')}>+ Thêm lớp học</Btn>}
+      />
 
       {error ? (
         <PageState kind="error" title="Không tải được lớp học" description={error} action={<Btn variant="secondary" onClick={load}>Thử lại</Btn>} />
@@ -70,6 +97,14 @@ export function ClassListPage({ onNavigate }) {
       )}
 
       {toast && <Toast message={toast.message} type={toast.type} onDismiss={() => setToast(null)} />}
+      <ConfirmDialog
+        open={!!deleteTarget}
+        title="Xóa lớp học"
+        message={`Bạn có chắc muốn xóa lớp ${deleteTarget?.code || ''}?`}
+        onCancel={() => setDeleteTarget(null)}
+        onConfirm={handleDelete}
+        confirmLabel="Xóa"
+      />
     </AdminLayout>
   );
 }
