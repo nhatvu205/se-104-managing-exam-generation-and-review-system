@@ -109,7 +109,7 @@ export default function UserFormPage({ onNavigate }) {
               label="Trạng thái"
               value={form.status}
               onChange={set('status')}
-              options={[{ value: 'active', label: 'Đang hoạt động' }, { value: 'inactive', label: 'Đã khóa' }]}
+              options={[{ value: 'pending', label: 'Chờ duyệt' }, { value: 'active', label: 'Đang hoạt động' }, { value: 'inactive', label: 'Đã khóa' }]}
             />
           </div>
         </Card>

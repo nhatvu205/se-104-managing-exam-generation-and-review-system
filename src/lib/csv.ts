@@ -52,11 +52,26 @@ export function parseCsv(text: string) {
 }
 
 export function downloadCsv(filename: string, content: string) {
-  const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
+  const bom = '\uFEFF';
+  const blob = new Blob([bom, content], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement('a');
   anchor.href = url;
   anchor.download = filename;
   anchor.click();
   URL.revokeObjectURL(url);
+}
+
+export async function readCsvFile(file: File) {
+  const buffer = await file.arrayBuffer();
+  const bytes = new Uint8Array(buffer);
+  const utf8 = new TextDecoder('utf-8').decode(bytes);
+
+  if (!utf8.includes('�')) return utf8;
+
+  try {
+    return new TextDecoder('windows-1258').decode(bytes);
+  } catch {
+    return utf8;
+  }
 }

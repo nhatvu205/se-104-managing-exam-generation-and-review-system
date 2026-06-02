@@ -94,8 +94,9 @@ function normalizeRole(name: string | null | undefined): AppRole | null {
   return null;
 }
 
-function normalizeStatus(value: string | null | undefined): 'active' | 'inactive' {
+function normalizeStatus(value: string | null | undefined): 'active' | 'inactive' | 'pending' {
   const v = (value || '').toLowerCase();
+  if (['pending', 'cho_duyet', 'chờ duyệt', 'cho duyet'].includes(v)) return 'pending';
   if (['1', 'active', 'hoatdong', 'đang hoạt động', 'danghoatdong'].includes(v)) return 'active';
   return 'inactive';
 }
@@ -191,6 +192,7 @@ export async function fetchCurrentUserProfile(): Promise<CurrentUserProfile> {
 }
 
 async function createAuthUserByEdgeFunction(payload: {
+  userId?: string;
   fullName: string;
   email: string;
   roleId: string;
@@ -199,6 +201,7 @@ async function createAuthUserByEdgeFunction(payload: {
   const client = getClient();
   const { data, error } = await client.functions.invoke('admin-create-user', {
     body: {
+      userId: payload.userId,
       fullName: payload.fullName,
       email: payload.email,
       roleId: payload.roleId,
@@ -350,15 +353,34 @@ export async function saveUser(payload: {
   } as any;
 
   if (payload.id) {
-    let updateResult;
     try {
-      updateResult = await queryFirst<any[]>(TABLES.users, async (table) =>
-        client.from(table).update(base).eq('MaNguoiDung', payload.id).select('MaNguoiDung'),
+      const currentUserRes = await queryFirst<any[]>(TABLES.users, (table) =>
+        client.from(table).select('MaNguoiDung,auth_user_id').eq('MaNguoiDung', payload.id).limit(1),
       );
+      const currentUser = (currentUserRes.data || [])[0];
+      const needsAuthProvision = payload.status === 'active' && !currentUser?.auth_user_id;
+      const updateBase = { ...base } as any;
+
+      if (needsAuthProvision) {
+        const authUserId = await createAuthUserByEdgeFunction({
+          userId: payload.id,
+          fullName: payload.fullName,
+          email: payload.email,
+          roleId: payload.roleId,
+          password: payload.password || '12345678',
+        });
+        updateBase.auth_user_id = authUserId;
+        updateBase.TenDangNhap = payload.email.split('@')[0];
+        updateBase.MatKhau = payload.password || '12345678';
+      }
+
+      const updateResult = await queryFirst<any[]>(TABLES.users, async (table) =>
+        client.from(table).update(updateBase).eq('MaNguoiDung', payload.id).select('MaNguoiDung'),
+      );
+      return updateResult.data;
     } catch (error: any) {
       throw toAppError(error);
     }
-    return updateResult.data;
   }
 
   const userId = `ND${Date.now()}`;
@@ -380,6 +402,73 @@ export async function saveUser(payload: {
     throw toAppError(error);
   }
   return insertResult.data;
+}
+
+export async function submitRegistrationRequest(payload: {
+  fullName: string;
+  email: string;
+  phone?: string;
+  roleId: string;
+}) {
+  const client = getClient();
+  const { data, error } = await client.functions.invoke('submit-registration-request', {
+    body: {
+      fullName: payload.fullName,
+      email: payload.email,
+      phone: payload.phone || '',
+      roleId: payload.roleId,
+    },
+  });
+
+  if (error) {
+    throw new Error(error.message || 'Không gửi được yêu cầu đăng ký.');
+  }
+
+  if (data?.error) {
+    throw new Error(String(data.error));
+  }
+
+  return data;
+}
+
+export async function approvePendingUser(payload: {
+  userId: string;
+  fullName: string;
+  email: string;
+  roleId: string;
+  phone?: string;
+  password?: string;
+}) {
+  const client = getClient();
+  const authUserId = await createAuthUserByEdgeFunction({
+    userId: payload.userId,
+    fullName: payload.fullName,
+    email: payload.email,
+    roleId: payload.roleId,
+    password: payload.password || '12345678',
+  });
+
+  const username = payload.email.split('@')[0];
+  try {
+    await queryFirst<any[]>(TABLES.users, (table) =>
+      client
+        .from(table)
+        .update({
+          HoTen: payload.fullName,
+          Email: payload.email,
+          SoDienThoai: payload.phone || null,
+          MaVaiTro: payload.roleId,
+          TrangThai: 'active',
+          TenDangNhap: username,
+          MatKhau: payload.password || '12345678',
+          auth_user_id: authUserId,
+        })
+        .eq('MaNguoiDung', payload.userId)
+        .select('MaNguoiDung'),
+    );
+  } catch (error: any) {
+    throw toAppError(error);
+  }
 }
 
 export async function deleteUser(userId: string) {
@@ -596,7 +685,7 @@ export async function deleteClass(classId: string) {
 export async function fetchLecturerSummary() {
   const client = getClient();
   const [subRes, detailRes] = await Promise.all([
-    queryFirst<any[]>(TABLES.submissions, (table) => client.from(table).select('MaBaiThi,MaSinhVien,TongDiem,XepLoai').order('MaBaiThi', { ascending: false }).limit(50)),
+    queryFirst<any[]>(TABLES.submissions, (table) => client.from(table).select('MaBaiThi,MaDeThi,MaNguoiCham,TongDiem,XepLoai').order('MaBaiThi', { ascending: false }).limit(50)),
     queryFirst<any[]>(TABLES.gradingDetails, (table) => client.from(table).select('MaBaiThi,DiemDat')),
   ]);
 
@@ -610,8 +699,9 @@ export async function fetchLecturerSummary() {
     const scores = detailMap[b.MaBaiThi] || [];
     return {
       id: b.MaBaiThi,
-      studentId: b.MaSinhVien,
-      fullName: b.MaSinhVien,
+      submissionCode: b.MaBaiThi,
+      examId: b.MaDeThi || '',
+      graderId: b.MaNguoiCham || '',
       scores,
       total: Number(b.TongDiem || 0),
       grade: b.XepLoai || '',
@@ -636,19 +726,18 @@ export async function fetchRegrades() {
 
 export async function fetchLecturerQuestionBank() {
   const client = getClient();
-  const currentUserId = await resolveCurrentDbUserId();
-  const [questionsRes, subjectsRes, levelsRes] = await Promise.all([
+  const [questionsRes, subjectsRes, levelsRes, userDirectoryRes] = await Promise.all([
     queryFirst<any[]>(TABLES.questions, (table) => {
-      let query = client.from(table).select('*').order('NgaySoan', { ascending: false });
-      if (currentUserId) query = query.eq('MaNguoiSoan', currentUserId);
-      return query;
+      return client.from(table).select('*').order('NgaySoan', { ascending: false });
     }),
     queryFirst<any[]>(TABLES.subjects, (table) => client.from(table).select('MaMonHoc,TenMonHoc')),
     queryFirst<any[]>(TABLES.levels, (table) => client.from(table).select('MaMucDo,TenMucDo')),
+    client.rpc('get_public_user_directory'),
   ]);
 
   const subjectMap = new Map((subjectsRes.data || []).map((s: any) => [s.MaMonHoc, s.TenMonHoc]));
   const levelMap = new Map((levelsRes.data || []).map((l: any) => [l.MaMucDo, l.TenMucDo || l.MaMucDo]));
+  const userMap = new Map((((userDirectoryRes as any)?.data) || []).map((u: any) => [u.MaNguoiDung, u.HoTen || u.MaNguoiDung]));
 
   return (questionsRes.data || []).map((row: any) => ({
     id: row.MaCauHoi,
@@ -661,6 +750,7 @@ export async function fetchLecturerQuestionBank() {
     status: row.TrangThai || '',
     updatedAt: formatDate(row.NgaySoan),
     authorId: row.MaNguoiSoan || '',
+    authorName: userMap.get(row.MaNguoiSoan) || row.MaNguoiSoan || '',
   }));
 }
 
@@ -911,8 +1001,8 @@ export async function fetchLecturerGradingQueue() {
     const status = statusRaw.includes('đã chấm') || statusRaw.includes('da cham') ? 'graded' : statusRaw.includes('đang') ? 'grading' : 'ungraded';
     return {
       id: row.MaBaiThi,
-      studentId: row.MaSinhVien || '',
-      studentName: row.MaSinhVien || '',
+      submissionCode: row.MaBaiThi || '',
+      submissionName: `Bài thi ${row.MaBaiThi || ''}`.trim(),
       examId: row.MaDeThi || '',
       examTitle: examMap.get(row.MaDeThi) || row.MaDeThi || '',
       total: Number(row.TongDiem || 0),
@@ -952,8 +1042,8 @@ export async function fetchLecturerGradingDetail(submissionId: string) {
 
   return {
     id: submission.MaBaiThi,
-    studentId: submission.MaSinhVien || '',
-    studentName: submission.MaSinhVien || '',
+    submissionCode: submission.MaBaiThi || '',
+    submissionName: `Bài thi ${submission.MaBaiThi || ''}`.trim(),
     examId: submission.MaDeThi || '',
     examTitle: examMap.get(submission.MaDeThi) || submission.MaDeThi || '',
     submittedAt: toDateTimeValue(submission.GioNop),

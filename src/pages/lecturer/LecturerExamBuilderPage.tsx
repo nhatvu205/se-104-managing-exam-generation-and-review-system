@@ -2,7 +2,7 @@ import { type ChangeEvent, type FormEvent, useEffect, useMemo, useState } from '
 import { Link } from 'react-router-dom';
 import RoleLayout from '../../components/RoleLayout';
 import { Btn, PageState } from '../../layouts/AdminLayout';
-import { downloadCsv, parseCsv } from '../../lib/csv';
+import { downloadCsv, parseCsv, readCsvFile } from '../../lib/csv';
 import { fetchLecturerQuestionBank, fetchSemesters, fetchSubjects, saveLecturerExam } from '../../lib/supabaseData';
 import { withLecturerActive } from './lecturerNav';
 import { useLecturerIdentity } from './useLecturerIdentity';
@@ -73,7 +73,7 @@ export default function LecturerExamBuilderPage() {
   };
 
   const importExams = async (file: File) => {
-    const text = await file.text();
+    const text = await readCsvFile(file);
     const { data } = parseCsv(text);
     for (const row of data) {
       if (!row.title || !row.subject_code || !row.semester_code || !row.question_ids) continue;
@@ -124,7 +124,7 @@ export default function LecturerExamBuilderPage() {
             onClick={() =>
               downloadCsv(
                 'template-exams.csv',
-                'title,subject_code,semester_code,duration_minutes,question_ids\n"Giữa kỳ SE104",SE104,HK1_2026_2027,60,CH00001;CH00002;CH00003\n',
+                'title,subject_code,semester_code,duration_minutes,question_ids\n"Đề giữa kỳ SE104 có dấu tiếng Việt",SE104,HK1_2026_2027,60,CH00001;CH00002;CH00003\n',
               )
             }
           >
@@ -207,6 +207,13 @@ export default function LecturerExamBuilderPage() {
                       <td data-label="Độ khó">{question.difficulty || '-'}</td>
                     </tr>
                   ))}
+                  {!availableQuestions.length ? (
+                    <tr>
+                      <td colSpan={4} style={{ textAlign: 'center', color: '#6b7280' }}>
+                        Chưa có câu hỏi nào cho môn học đang chọn. Hãy đổi môn học hoặc tạo câu hỏi trước.
+                      </td>
+                    </tr>
+                  ) : null}
                 </tbody>
               </table>
             </div>

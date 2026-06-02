@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import AdminLayout, { Btn, PageState } from '../../layouts/AdminLayout';
 import { fetchSubjects } from '../../lib/supabaseData';
+import { downloadCsv } from '../../lib/csv';
 
 export default function AdminYearReportExportPage() {
   const [subjects, setSubjects] = useState<any[]>([]);
@@ -30,6 +31,49 @@ export default function AdminYearReportExportPage() {
     return { totalExams, totalQuestions };
   }, [subjects]);
 
+  const exportCsv = () => {
+    const lines = [
+      'ma_mon,ten_mon,so_cau_hoi,so_de_thi,so_giang_vien_phu_trach',
+      ...subjects.map((s) => [s.code, `"${String(s.name || '').replace(/"/g, '""')}"`, s.questionCount, s.examCount, s.lecturerCount].join(',')),
+    ];
+    downloadCsv(`bao-cao-nam-${new Date().toISOString().slice(0, 10)}.csv`, lines.join('\n'));
+  };
+
+  const exportPdf = () => {
+    const win = window.open('', '_blank', 'width=1024,height=768');
+    if (!win) return;
+    const rows = subjects
+      .map(
+        (s) =>
+          `<tr><td>${s.code}</td><td>${s.name}</td><td>${s.questionCount}</td><td>${s.examCount}</td><td>${s.lecturerCount}</td></tr>`,
+      )
+      .join('');
+    win.document.write(`
+      <html>
+        <head>
+          <title>Báo cáo năm</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 24px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 16px; }
+            th, td { border: 1px solid #d1d5db; padding: 8px; text-align: left; }
+          </style>
+        </head>
+        <body>
+          <h1>Hệ thống ra đề và chấm thi</h1>
+          <h2>Báo cáo năm</h2>
+          <p>Tổng môn học: ${subjects.length} | Tổng đề thi: ${summary.totalExams} | Tổng câu hỏi: ${summary.totalQuestions}</p>
+          <table>
+            <thead><tr><th>Mã môn</th><th>Tên môn</th><th>Số câu hỏi</th><th>Số đề thi</th><th>Số GV phụ trách</th></tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </body>
+      </html>
+    `);
+    win.document.close();
+    win.focus();
+    win.print();
+  };
+
   return (
     <AdminLayout activeKey="year-report-export" breadcrumbs={['Dashboard', 'Báo cáo năm']}>
       <header className="page-header">
@@ -38,8 +82,8 @@ export default function AdminYearReportExportPage() {
           <p className="page-subtitle">{loading ? 'Đang tải dữ liệu...' : `${subjects.length} môn học`}</p>
         </div>
         <div className="toolbar">
-          <button className="btn btn-primary" type="button">Xuất PDF</button>
-          <button className="btn btn-secondary" type="button">Xuất CSV</button>
+          <button className="btn btn-primary" type="button" onClick={exportPdf}>Xuất PDF</button>
+          <button className="btn btn-secondary" type="button" onClick={exportCsv}>Xuất CSV</button>
         </div>
       </header>
 

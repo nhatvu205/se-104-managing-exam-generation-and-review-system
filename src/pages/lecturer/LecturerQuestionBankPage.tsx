@@ -11,6 +11,7 @@ export default function LecturerQuestionBankPage() {
   const [rows, setRows] = useState<any[]>([]);
   const [query, setQuery] = useState('');
   const [subject, setSubject] = useState('');
+  const [author, setAuthor] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -38,14 +39,22 @@ export default function LecturerQuestionBankPage() {
     });
   }, [rows]);
 
+  const authors = useMemo(() => {
+    return Array.from(new Set(rows.map((q) => `${q.authorId}|${q.authorName}`))).map((item) => {
+      const [id, name] = item.split('|');
+      return { id, name };
+    });
+  }, [rows]);
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return rows.filter((item) => {
       const matchQuery = !q || [item.code, item.content, item.subjectCode, item.subjectName].join(' ').toLowerCase().includes(q);
       const matchSubject = !subject || item.subjectCode === subject;
-      return matchQuery && matchSubject;
+      const matchAuthor = !author || item.authorId === author;
+      return matchQuery && matchSubject && matchAuthor;
     });
-  }, [query, rows, subject]);
+  }, [author, query, rows, subject]);
 
   return (
     <RoleLayout
@@ -69,7 +78,7 @@ export default function LecturerQuestionBankPage() {
       ) : (
         <>
           <section className="card">
-            <div className="form-grid two">
+            <div className="form-grid three">
               <div className="field">
                 <label>Tìm kiếm</label>
                 <input className="input" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Mã câu hỏi / nội dung" />
@@ -85,6 +94,17 @@ export default function LecturerQuestionBankPage() {
                   ))}
                 </select>
               </div>
+              <div className="field">
+                <label>Giảng viên</label>
+                <select className="select" value={author} onChange={(e) => setAuthor(e.target.value)}>
+                  <option value="">Tất cả</option>
+                  {authors.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
           </section>
 
@@ -96,6 +116,7 @@ export default function LecturerQuestionBankPage() {
                     <th>Mã</th>
                     <th>Nội dung</th>
                     <th>Môn học</th>
+                    <th>Giảng viên</th>
                     <th>Độ khó</th>
                     <th>Trạng thái</th>
                     <th>Cập nhật</th>
@@ -107,6 +128,7 @@ export default function LecturerQuestionBankPage() {
                       <td data-label="Mã">{item.code}</td>
                       <td data-label="Nội dung">{item.content}</td>
                       <td data-label="Môn học">{item.subjectCode}</td>
+                      <td data-label="Giảng viên">{item.authorName || item.authorId || '-'}</td>
                       <td data-label="Độ khó">{item.difficulty || '-'}</td>
                       <td data-label="Trạng thái">
                         <span className={`badge ${String(item.status || '').toLowerCase().includes('đang') ? 'badge-success' : 'badge-warning'}`}>{item.status || '-'}</span>

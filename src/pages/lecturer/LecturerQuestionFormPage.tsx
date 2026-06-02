@@ -2,7 +2,7 @@ import { type ChangeEvent, type FormEvent, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import RoleLayout from '../../components/RoleLayout';
 import { Btn, PageState } from '../../layouts/AdminLayout';
-import { downloadCsv, parseCsv } from '../../lib/csv';
+import { downloadCsv, parseCsv, readCsvFile } from '../../lib/csv';
 import { createSubject, fetchDifficultyLevels, fetchSubjects, saveLecturerQuestion, saveSubject } from '../../lib/supabaseData';
 import { withLecturerActive } from './lecturerNav';
 import { useLecturerIdentity } from './useLecturerIdentity';
@@ -90,7 +90,7 @@ export default function LecturerQuestionFormPage() {
   };
 
   const importSubjects = async (file: File) => {
-    const text = await file.text();
+    const text = await readCsvFile(file);
     const { data } = parseCsv(text);
     for (const row of data) {
       if (!row.code || !row.name) continue;
@@ -106,7 +106,7 @@ export default function LecturerQuestionFormPage() {
   };
 
   const importQuestions = async (file: File) => {
-    const text = await file.text();
+    const text = await readCsvFile(file);
     const { data } = parseCsv(text);
     for (const row of data) {
       if (!row.subject_code || !row.level_code || !row.content || !row.answer) continue;
@@ -159,7 +159,7 @@ export default function LecturerQuestionFormPage() {
             onClick={() =>
               downloadCsv(
                 'template-questions.csv',
-                'subject_code,level_code,content,answer,status\nSE104,NB,"Nội dung câu hỏi","Đáp án","Đang dùng"\n',
+                'subject_code,level_code,content,answer,status\nSE104,NB,"Nội dung câu hỏi có dấu tiếng Việt","Đáp án / hướng dẫn chấm","Đang dùng"\n',
               )
             }
           >
@@ -171,7 +171,7 @@ export default function LecturerQuestionFormPage() {
             onClick={() =>
               downloadCsv(
                 'template-subjects.csv',
-                'code,name,credits,description\nSE500,Chuyên đề kiểm thử nâng cao,3,Mô tả môn học\n',
+                'code,name,credits,description\nSE500,"Chuyên đề kiểm thử nâng cao",3,"Mô tả môn học có dấu tiếng Việt"\n',
               )
             }
           >

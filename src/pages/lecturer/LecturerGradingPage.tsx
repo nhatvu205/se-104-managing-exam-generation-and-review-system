@@ -34,7 +34,7 @@ export default function LecturerGradingPage() {
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return rows.filter((item) => {
-      const matchQuery = !q || [item.id, item.studentId, item.studentName, item.examTitle].join(' ').toLowerCase().includes(q);
+      const matchQuery = !q || [item.id, item.submissionCode, item.submissionName, item.examTitle].join(' ').toLowerCase().includes(q);
       const matchStatus = !status || item.status === status;
       return matchQuery && matchStatus;
     });
@@ -76,7 +76,7 @@ export default function LecturerGradingPage() {
             <div className="form-grid two">
               <div className="field">
                 <label>Tìm kiếm</label>
-                <input className="input" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Mã bài / mã SV / tên" />
+                <input className="input" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Mã bài / đề thi" />
               </div>
               <div className="field">
                 <label>Trạng thái</label>
@@ -96,7 +96,7 @@ export default function LecturerGradingPage() {
                 <thead>
                   <tr>
                     <th>Mã bài</th>
-                    <th>Sinh viên</th>
+                    <th>Thông tin bài</th>
                     <th>Đề thi</th>
                     <th>Điểm</th>
                     <th>Trạng thái</th>
@@ -107,9 +107,9 @@ export default function LecturerGradingPage() {
                   {filtered.map((item) => (
                     <tr key={item.id}>
                       <td data-label="Mã bài">{item.id}</td>
-                      <td data-label="Sinh viên">
-                        {item.studentName}
-                        <div style={{ color: '#6b7280', fontSize: 12 }}>{item.studentId}</div>
+                      <td data-label="Thông tin bài">
+                        {item.submissionName}
+                        <div style={{ color: '#6b7280', fontSize: 12 }}>{item.submissionCode}</div>
                       </td>
                       <td data-label="Đề thi">{item.examTitle}</td>
                       <td data-label="Điểm">{item.total > 0 ? item.total : '-'}</td>

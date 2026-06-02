@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import RoleLayout from '../../components/RoleLayout';
 import { Btn, PageState } from '../../layouts/AdminLayout';
+import { downloadCsv } from '../../lib/csv';
 import { fetchSubjects } from '../../lib/supabaseData';
 import { withLecturerActive } from './lecturerNav';
 import { useLecturerIdentity } from './useLecturerIdentity';
@@ -36,6 +37,14 @@ export default function LecturerYearReportPage() {
     };
   }, [subjects]);
 
+  const exportCsv = () => {
+    const lines = [
+      'ma_mon,ten_mon,so_de_thi,so_cau_hoi,so_giang_vien',
+      ...subjects.map((s) => [s.code, `"${String(s.name || '').replace(/"/g, '""')}"`, s.examCount, s.questionCount, s.lecturerCount].join(',')),
+    ];
+    downloadCsv(`bao-cao-nam-giang-vien-${new Date().toISOString().slice(0, 10)}.csv`, lines.join('\n'));
+  };
+
   return (
     <RoleLayout
       title={lecturer.title}
@@ -47,6 +56,9 @@ export default function LecturerYearReportPage() {
         <div>
           <h1 className="page-title">Báo cáo năm – Xem</h1>
           <p className="page-subtitle">{loading ? 'Đang tải dữ liệu...' : `${subjects.length} môn học`}</p>
+        </div>
+        <div className="toolbar">
+          <button className="btn btn-secondary" type="button" onClick={exportCsv}>Xuất CSV</button>
         </div>
       </header>
 

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import AdminLayout, { PageHeader, Card, Btn, Badge, SearchInput, Table, Pagination, ConfirmDialog, Toast, PageState, tokens } from '../../layouts/AdminLayout';
-import { fetchUsers, deleteUser } from '../../lib/supabaseData';
+import { approvePendingUser, fetchUsers, deleteUser } from '../../lib/supabaseData';
 
 const PAGE_SIZE = 10;
 
@@ -11,6 +11,7 @@ const ROLE_LABELS = {
 
 const STATUS_LABELS = {
   active: 'Đang hoạt động',
+  pending: 'Chờ duyệt',
   inactive: 'Đã khóa',
 };
 
@@ -23,6 +24,7 @@ export default function UserListPage({ onNavigate }) {
   const [statusFilter, setStatusFilter] = useState('');
   const [page, setPage] = useState(1);
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [approvingId, setApprovingId] = useState('');
   const [toast, setToast] = useState(null);
 
   const loadUsers = async () => {
@@ -66,6 +68,25 @@ export default function UserListPage({ onNavigate }) {
     }
   };
 
+  const handleApprove = async (row) => {
+    setApprovingId(row.id);
+    try {
+      await approvePendingUser({
+        userId: row.id,
+        fullName: row.fullName,
+        email: row.email,
+        roleId: row.roleId,
+        phone: row.phone,
+      });
+      setToast({ message: `Đã duyệt tài khoản ${row.fullName}`, type: 'success' });
+      loadUsers();
+    } catch (e) {
+      setToast({ message: e.message || 'Duyệt tài khoản thất bại', type: 'error' });
+    } finally {
+      setApprovingId('');
+    }
+  };
+
   const columns = [
     {
       key: 'fullName',
@@ -79,13 +100,18 @@ export default function UserListPage({ onNavigate }) {
     },
     { key: 'phone', label: 'SĐT' },
     { key: 'role', label: 'Vai trò', render: (v) => <Badge label={ROLE_LABELS[v] || v} color={v} /> },
-    { key: 'status', label: 'Trạng thái', render: (v) => <Badge label={STATUS_LABELS[v] || v} color={v} /> },
+    { key: 'status', label: 'Trạng thái', render: (v) => <Badge label={STATUS_LABELS[v] || v} color={v === 'pending' ? 'warning' : v} /> },
     { key: 'createdAt', label: 'Ngày tạo' },
     {
       key: 'actions',
       label: 'Thao tác',
       render: (_, row) => (
         <div style={{ display: 'flex', gap: 8 }}>
+          {row.status === 'pending' ? (
+            <Btn size="sm" variant="primary" onClick={() => handleApprove(row)} disabled={approvingId === row.id}>
+              {approvingId === row.id ? 'Đang duyệt...' : 'Duyệt'}
+            </Btn>
+          ) : null}
           <Btn size="sm" variant="secondary" onClick={() => onNavigate('users-edit', `/admin/users/${row.id}/edit`)}>Sửa</Btn>
           <Btn size="sm" variant="ghost" style={{ color: '#DC2626' }} onClick={() => setDeleteTarget(row)}>Xóa</Btn>
         </div>
@@ -117,6 +143,7 @@ export default function UserListPage({ onNavigate }) {
             <select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }} className="select" style={{ maxWidth: 180 }}>
               <option value="">Tất cả trạng thái</option>
               <option value="active">Đang hoạt động</option>
+              <option value="pending">Chờ duyệt</option>
               <option value="inactive">Đã khóa</option>
             </select>
           </div>

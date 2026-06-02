@@ -32,7 +32,7 @@ export default function LecturerGradingSummaryPage() {
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
     if (!q) return rows;
-    return rows.filter((r) => [r.studentId, r.fullName].join(' ').toLowerCase().includes(q));
+    return rows.filter((r) => [r.submissionCode, r.examId, r.graderId].join(' ').toLowerCase().includes(q));
   }, [rows, search]);
 
   return (
@@ -55,7 +55,7 @@ export default function LecturerGradingSummaryPage() {
         <>
           <section className="card">
             <div className="form-grid two">
-              <div className="field"><label>Tìm theo mã người học</label><input className="input" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="VD: SV0001" /></div>
+              <div className="field"><label>Tìm theo mã bài / đề thi</label><input className="input" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="VD: BT_TEST_A1" /></div>
             </div>
           </section>
 
@@ -63,12 +63,13 @@ export default function LecturerGradingSummaryPage() {
             <h2 className="section-title">Bảng điểm tổng hợp</h2>
             <div className="table-wrap">
               <table>
-                <thead><tr><th>Mã bài</th><th>Mã người học</th><th>Điểm từng câu</th><th>Tổng điểm</th><th>Xếp loại</th></tr></thead>
+                <thead><tr><th>Mã bài</th><th>Đề thi</th><th>Người chấm</th><th>Điểm từng câu</th><th>Tổng điểm</th><th>Xếp loại</th></tr></thead>
                 <tbody>
                   {filtered.map((r) => (
                     <tr key={r.id}>
                       <td>{r.id}</td>
-                      <td>{r.studentId}</td>
+                      <td>{r.examId || '-'}</td>
+                      <td>{r.graderId || '-'}</td>
                       <td>{r.scores.slice(0, 4).join(' | ') || '-'}</td>
                       <td><strong>{r.total}</strong></td>
                       <td><span className="badge badge-info">{r.grade || '-'}</span></td>

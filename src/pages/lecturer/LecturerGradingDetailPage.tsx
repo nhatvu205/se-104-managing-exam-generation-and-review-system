@@ -95,7 +95,7 @@ export default function LecturerGradingDetailPage() {
       <header className="page-header">
         <div>
           <h1 className="page-title">Chấm bài chi tiết</h1>
-          <p className="page-subtitle">{record ? `${record.studentName} (${record.studentId})` : 'Không tìm thấy bài thi'}</p>
+          <p className="page-subtitle">{record ? `${record.submissionName} (${record.submissionCode})` : 'Không tìm thấy bài thi'}</p>
         </div>
         <div className="toolbar">
           <Link className="btn btn-secondary" to="/lecturer/grading">Quay lại danh sách</Link>
