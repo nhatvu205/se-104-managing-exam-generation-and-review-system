@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import RoleLayout from '../../components/RoleLayout';
 import { Btn, PageState } from '../../layouts/AdminLayout';
 import { downloadCsv, parseCsv, readCsvFile } from '../../lib/csv';
-import { EXAM_STATUS_OPTIONS, fetchLecturerExamById, fetchLecturerQuestionBank, fetchSemesters, fetchSubjects, saveLecturerExam } from '../../lib/supabaseData';
+import { EXAM_STATUS_OPTIONS, fetchActiveSemesters, fetchLecturerExamById, fetchLecturerQuestionBank, fetchSubjects, saveLecturerExam } from '../../lib/supabaseData';
 import { withLecturerActive } from './lecturerNav';
 import { useLecturerIdentity } from './useLecturerIdentity';
 
@@ -34,7 +34,7 @@ export default function LecturerExamBuilderPage() {
     try {
       const [subjectData, semesterData, questionData, currentExam] = await Promise.all([
         fetchSubjects(),
-        fetchSemesters(),
+        fetchActiveSemesters(),
         fetchLecturerQuestionBank(),
         id ? fetchLecturerExamById(id) : Promise.resolve(null),
       ]);

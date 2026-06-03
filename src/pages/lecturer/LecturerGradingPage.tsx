@@ -1,18 +1,20 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import RoleLayout from '../../components/RoleLayout';
 import { Btn, PageState } from '../../layouts/AdminLayout';
-import { fetchLecturerGradingQueue } from '../../lib/supabaseData';
+import { claimLecturerGradingSubmission, fetchLecturerGradingQueue } from '../../lib/supabaseData';
 import { withLecturerActive } from './lecturerNav';
 import { useLecturerIdentity } from './useLecturerIdentity';
 
 export default function LecturerGradingPage() {
   const lecturer = useLecturerIdentity();
+  const navigate = useNavigate();
   const [rows, setRows] = useState<any[]>([]);
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [openingId, setOpeningId] = useState('');
 
   const load = async () => {
     setLoading(true);
@@ -47,6 +49,20 @@ export default function LecturerGradingPage() {
       graded: rows.filter((item) => item.status === 'graded').length,
     };
   }, [rows]);
+
+  const handleOpen = async (item: any) => {
+    setOpeningId(item.id);
+    setError('');
+    try {
+      await claimLecturerGradingSubmission(item.id);
+      navigate(`/lecturer/grading/${item.id}`);
+    } catch (e: any) {
+      setError(e.message || 'Không thể mở bài thi để chấm.');
+      await load();
+    } finally {
+      setOpeningId('');
+    }
+  };
 
   return (
     <RoleLayout
@@ -98,6 +114,7 @@ export default function LecturerGradingPage() {
                     <th>Mã bài</th>
                     <th>Thông tin bài</th>
                     <th>Đề thi</th>
+                    <th>Người chấm</th>
                     <th>Điểm</th>
                     <th>Trạng thái</th>
                     <th></th>
@@ -112,6 +129,16 @@ export default function LecturerGradingPage() {
                         <div style={{ color: '#6b7280', fontSize: 12 }}>{item.submissionCode}</div>
                       </td>
                       <td data-label="Đề thi">{item.examTitle}</td>
+                      <td data-label="Người chấm">
+                        {item.graderId ? (
+                          <div>
+                            <div>{item.graderName || item.graderId}</div>
+                            {item.isMine ? <div style={{ color: '#2563eb', fontSize: 12 }}>Bạn đang chấm bài này</div> : null}
+                          </div>
+                        ) : (
+                          <span style={{ color: '#6b7280' }}>Chưa có</span>
+                        )}
+                      </td>
                       <td data-label="Điểm">{item.total > 0 ? item.total : '-'}</td>
                       <td data-label="Trạng thái">
                         <span className={`badge ${item.status === 'graded' ? 'badge-success' : item.status === 'grading' ? 'badge-info' : 'badge-warning'}`}>
@@ -119,7 +146,13 @@ export default function LecturerGradingPage() {
                         </span>
                       </td>
                       <td data-label="Tác vụ">
-                        <Link className="btn btn-secondary" to={`/lecturer/grading/${item.id}`}>Mở bài</Link>
+                        {item.isClaimed && !item.isMine ? (
+                          <button type="button" className="btn btn-secondary" disabled>Đã có người nhận</button>
+                        ) : (
+                          <button type="button" className="btn btn-secondary" onClick={() => void handleOpen(item)} disabled={openingId === item.id}>
+                            {openingId === item.id ? 'Đang mở...' : item.isMine ? 'Tiếp tục chấm' : 'Nhận chấm'}
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ))}

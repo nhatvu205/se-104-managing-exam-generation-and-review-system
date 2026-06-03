@@ -1,14 +1,17 @@
 import { type ChangeEvent, type FormEvent, useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import RoleLayout from '../../components/RoleLayout';
 import { Btn, PageState } from '../../layouts/AdminLayout';
 import { downloadCsv, parseCsv, readCsvFile } from '../../lib/csv';
-import { createSubject, fetchDifficultyLevels, fetchSubjects, QUESTION_KIND_OPTIONS, saveLecturerQuestion, saveSubject } from '../../lib/supabaseData';
+import { createSubject, fetchDifficultyLevels, fetchLecturerQuestionById, fetchSubjects, QUESTION_KIND_OPTIONS, saveLecturerQuestion, saveSubject } from '../../lib/supabaseData';
 import { withLecturerActive } from './lecturerNav';
 import { useLecturerIdentity } from './useLecturerIdentity';
 
 export default function LecturerQuestionFormPage() {
   const lecturer = useLecturerIdentity();
+  const navigate = useNavigate();
+  const { id } = useParams();
+  const isEdit = !!id;
   const [subjects, setSubjects] = useState<any[]>([]);
   const [levels, setLevels] = useState<any[]>([]);
   const [subjectCode, setSubjectCode] = useState('');
@@ -19,7 +22,6 @@ export default function LecturerQuestionFormPage() {
   const [difficulty, setDifficulty] = useState('');
   const [questionType, setQuestionType] = useState<'TRAC_NGHIEM' | 'TU_LUAN'>('TU_LUAN');
   const [content, setContent] = useState('');
-  const [answerGuide, setAnswerGuide] = useState('');
   const [choices, setChoices] = useState([
     { key: 'A', text: '' },
     { key: 'B', text: '' },
@@ -36,15 +38,40 @@ export default function LecturerQuestionFormPage() {
   const [importMessage, setImportMessage] = useState('');
 
   const load = async () => {
+    if (isEdit && !lecturer.userId) return;
     setLoading(true);
     setError('');
     try {
-      const [subjectData, levelData] = await Promise.all([fetchSubjects(), fetchDifficultyLevels()]);
+      const [subjectData, levelData, currentQuestion] = await Promise.all([
+        fetchSubjects(),
+        fetchDifficultyLevels(),
+        id ? fetchLecturerQuestionById(id) : Promise.resolve(null),
+      ]);
       setSubjects(subjectData);
       setLevels(levelData);
-      if (subjectData[0]?.code) setSubjectCode(subjectData[0].code);
+      if (currentQuestion) {
+        if (lecturer.userId && currentQuestion.authorId !== lecturer.userId) {
+          throw new Error('Bạn chỉ có thể sửa câu hỏi do chính mình tạo.');
+        }
+        setSubjectCode(currentQuestion.subjectCode || subjectData[0]?.code || '');
+        setDifficulty(currentQuestion.difficultyCode || levelData[0]?.code || '');
+        setQuestionType(currentQuestion.questionType || 'TU_LUAN');
+        setContent(currentQuestion.content || '');
+        setRubric(currentQuestion.rubric || '');
+        setChoices(
+          currentQuestion.choices?.length
+            ? currentQuestion.choices
+            : [
+                { key: 'A', text: '' },
+                { key: 'B', text: '' },
+                { key: 'C', text: '' },
+                { key: 'D', text: '' },
+              ],
+        );
+        setCorrectAnswer(currentQuestion.correctAnswer || 'A');
+      } else if (subjectData[0]?.code) setSubjectCode(subjectData[0].code);
       if (!subjectData.length) setIsCustomSubject(true);
-      if (levelData[0]?.code) setDifficulty(levelData[0].code);
+      if (!currentQuestion && levelData[0]?.code) setDifficulty(levelData[0].code);
     } catch (e: any) {
       setError(e.message || 'Không tải được dữ liệu biểu mẫu');
     } finally {
@@ -54,7 +81,7 @@ export default function LecturerQuestionFormPage() {
 
   useEffect(() => {
     load();
-  }, []);
+  }, [id, lecturer.userId]);
 
   const onSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -77,10 +104,10 @@ export default function LecturerQuestionFormPage() {
           targetSubjectCode = customSubjectCode.trim();
         }
         await saveLecturerQuestion({
+          id,
           subjectCode: targetSubjectCode,
           levelCode: difficulty,
           content,
-          answer: answerGuide,
           questionType,
           choices,
           correctAnswer,
@@ -89,8 +116,11 @@ export default function LecturerQuestionFormPage() {
       })
       .then(() => {
         setSaved(true);
+        if (isEdit) {
+          navigate('/lecturer/questions');
+          return;
+        }
         setContent('');
-        setAnswerGuide('');
         setRubric('');
         setChoices([
           { key: 'A', text: '' },
@@ -171,15 +201,15 @@ export default function LecturerQuestionFormPage() {
 
   return (
     <RoleLayout
-      title={lecturer.title}
+          title={lecturer.title}
       roleBadge={lecturer.roleBadge}
       sidebarSubtitle="Portal giảng viên"
       navItems={withLecturerActive('/lecturer/questions/create')}
     >
       <header className="page-header">
         <div>
-          <h1 className="page-title">Tạo câu hỏi</h1>
-          <p className="page-subtitle">Màn hình này chỉ dùng để tạo mới câu hỏi (khác với trang Ngân hàng câu hỏi dùng để tra cứu).</p>
+          <h1 className="page-title">{isEdit ? 'Sửa câu hỏi' : 'Tạo câu hỏi'}</h1>
+          <p className="page-subtitle">{isEdit ? 'Cập nhật lại nội dung, loại câu hỏi và rubric/đáp án.' : 'Màn hình này chỉ dùng để tạo mới câu hỏi (khác với trang Ngân hàng câu hỏi dùng để tra cứu).'}</p>
         </div>
         <div className="toolbar">
           <Link className="btn btn-secondary" to="/lecturer/questions">Quay lại ngân hàng</Link>
@@ -324,7 +354,7 @@ export default function LecturerQuestionFormPage() {
             {importMessage ? <div className="notice notice-success mt-16">{importMessage}</div> : null}
 
             <div className="actions">
-              <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Đang lưu...' : 'Lưu câu hỏi'}</button>
+              <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Đang lưu...' : isEdit ? 'Cập nhật câu hỏi' : 'Lưu câu hỏi'}</button>
               <Link className="btn btn-secondary" to="/lecturer/questions">Hủy</Link>
             </div>
           </form>

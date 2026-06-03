@@ -35,7 +35,7 @@ export const QUESTION_KIND_OPTIONS = [
   { value: 'TU_LUAN', label: 'Tự luận' },
 ] as const;
 
-export const EXAM_STATUS_OPTIONS = ['Nháp', 'Đang dùng', 'Ngừng dùng'] as const;
+export const EXAM_STATUS_OPTIONS = ['Đang dùng', 'Ngừng dùng'] as const;
 
 type Candidate = readonly string[];
 
@@ -105,7 +105,7 @@ function normalizeRole(name: string | null | undefined): AppRole | null {
 function normalizeStatus(value: string | null | undefined): 'active' | 'inactive' | 'pending' {
   const v = (value || '').toLowerCase();
   if (['pending', 'cho_duyet', 'chờ duyệt', 'cho duyet'].includes(v)) return 'pending';
-  if (['1', 'active', 'hoatdong', 'đang hoạt động', 'danghoatdong'].includes(v)) return 'active';
+  if (['1', 'active', 'hoatdong', 'đang hoạt động', 'danghoatdong', 'đang mở', 'dang mo'].includes(v)) return 'active';
   return 'inactive';
 }
 
@@ -452,7 +452,7 @@ export async function submitRegistrationRequest(payload: {
   fullName: string;
   email: string;
   phone?: string;
-  roleId: string;
+  password: string;
 }) {
   const client = getClient();
   const { data, error } = await client.functions.invoke('submit-registration-request', {
@@ -460,7 +460,7 @@ export async function submitRegistrationRequest(payload: {
       fullName: payload.fullName,
       email: payload.email,
       phone: payload.phone || '',
-      roleId: payload.roleId,
+      password: payload.password,
     },
   });
 
@@ -578,7 +578,13 @@ export async function fetchSemesters() {
     startDate: formatDate(r.NgayBatDau),
     endDate: formatDate(r.NgayKetThuc),
     status: normalizeStatus(r.TrangThai),
+    rawStatus: r.TrangThai || '',
   }));
+}
+
+export async function fetchActiveSemesters() {
+  const semesters = await fetchSemesters();
+  return semesters.filter((semester) => normalizeStatus(semester.rawStatus || semester.status) === 'active');
 }
 
 export async function fetchSemesterById(semesterId: string) {
@@ -695,9 +701,10 @@ export async function saveClass(payload: {
   schedule?: string;
 }) {
   const client = getClient();
+  const normalizedCode = payload.code.trim();
   const row = {
-    MaLopHoc: payload.code.trim(),
-    TenLopHoc: payload.name.trim(),
+    MaLopHoc: normalizedCode,
+    TenLopHoc: payload.name.trim() || normalizedCode,
     MaHocKyNamHoc: payload.semesterCode,
     MaMonHoc: payload.subjectCode,
     MaGiangVien: payload.lecturerId,
@@ -789,6 +796,7 @@ export async function fetchLecturerQuestionBank() {
     content: row.NoiDung || '',
     subjectCode: row.MaMonHoc || '',
     subjectName: subjectMap.get(row.MaMonHoc) || row.MaMonHoc || '',
+    difficultyCode: row.MaMucDo || '',
     difficulty: levelMap.get(row.MaMucDo) || row.MaMucDo || '',
     answer: row.DapAn || '',
     questionType: normalizeQuestionKind(row.LoaiCauHoi),
@@ -800,6 +808,11 @@ export async function fetchLecturerQuestionBank() {
     authorId: row.MaNguoiSoan || '',
     authorName: userMap.get(row.MaNguoiSoan) || row.MaNguoiSoan || '',
   }));
+}
+
+export async function fetchLecturerQuestionById(questionId: string) {
+  const rows = await fetchLecturerQuestionBank();
+  return rows.find((row) => String(row.id) === String(questionId)) || null;
 }
 
 export async function createSubject(payload: {
@@ -997,13 +1010,14 @@ export async function saveLecturerExam(payload: {
     GhiChu: payload.title,
   };
 
-  const questionScore = Number((10 / payload.questionIds.length).toFixed(2));
+  const baseScore = Math.floor(10 / payload.questionIds.length);
+  const remainder = 10 - (baseScore * payload.questionIds.length);
   const detailRows = payload.questionIds.map((questionId, index) => ({
     MaChiTietDeThi: `CTDT_${examId}_${index + 1}`,
     MaDeThi: examId,
     MaCauHoi: questionId,
     ThuTu: index + 1,
-    DiemToiDa: questionScore,
+    DiemToiDa: baseScore + (index < remainder ? 1 : 0),
     HuongDanCham: '',
   }));
 
@@ -1102,18 +1116,27 @@ export async function fetchLecturerExamPreview(examId: string) {
 export async function fetchLecturerGradingQueue() {
   const client = getClient();
   const currentUserId = await resolveCurrentDbUserId();
-  const [submissionsRes, examsRes] = await Promise.all([
-    queryFirst<any[]>(TABLES.submissions, (table) => {
-      let query = client.from(table).select('*').order('GioNop', { ascending: false }).limit(200);
-      if (currentUserId) query = query.eq('MaNguoiCham', currentUserId);
-      return query;
-    }),
-    queryFirst<any[]>(TABLES.exams, (table) => client.from(table).select('MaDeThi,GhiChu')),
+  const profile = await fetchCurrentUserProfile();
+  const [submissionsRes, examsRes, subjectsRes, userDirectoryRes] = await Promise.all([
+    queryFirst<any[]>(TABLES.submissions, (table) => client.from(table).select('*').order('GioNop', { ascending: false }).limit(200)),
+    queryFirst<any[]>(TABLES.exams, (table) => client.from(table).select('MaDeThi,GhiChu,MaMonHoc')),
+    queryFirst<any[]>(TABLES.subjects, (table) => client.from(table).select('MaMonHoc,BoMon')),
+    client.rpc('get_public_user_directory'),
   ]);
 
   const examMap = new Map((examsRes.data || []).map((e: any) => [e.MaDeThi, e.GhiChu || e.MaDeThi]));
+  const examSubjectMap = new Map((examsRes.data || []).map((e: any) => [e.MaDeThi, e.MaMonHoc]));
+  const subjectDeptMap = new Map((subjectsRes.data || []).map((s: any) => [s.MaMonHoc, s.BoMon || '']));
+  const userMap = new Map((((userDirectoryRes as any)?.data) || []).map((u: any) => [u.MaNguoiDung, u.HoTen || u.MaNguoiDung]));
 
-  return (submissionsRes.data || []).map((row: any) => {
+  return (submissionsRes.data || [])
+    .filter((row: any) => {
+      if (!profile.department) return currentUserId ? row.MaNguoiCham === currentUserId : true;
+      const subjectCode = examSubjectMap.get(row.MaDeThi);
+      const department = subjectDeptMap.get(subjectCode || '');
+      return department === profile.department;
+    })
+    .map((row: any) => {
     const statusRaw = String(row.TrangThai || '').toLowerCase();
     const status = statusRaw.includes('đã chấm') || statusRaw.includes('da cham') ? 'graded' : statusRaw.includes('đang') ? 'grading' : 'ungraded';
     return {
@@ -1125,8 +1148,46 @@ export async function fetchLecturerGradingQueue() {
       total: Number(row.TongDiem || 0),
       status,
       submittedAt: toDateTimeValue(row.GioNop),
+      graderId: row.MaNguoiCham || '',
+      graderName: userMap.get(row.MaNguoiCham) || row.MaNguoiCham || '',
+      isMine: !!currentUserId && row.MaNguoiCham === currentUserId,
+      isClaimed: !!row.MaNguoiCham,
     };
   });
+}
+
+export async function claimLecturerGradingSubmission(submissionId: string) {
+  const client = getClient();
+  const currentUserId = await resolveCurrentDbUserId();
+  if (!currentUserId) {
+    throw new Error('Không xác định được giảng viên đăng nhập. Vui lòng đăng nhập lại.');
+  }
+
+  try {
+    const result = await queryFirst<any[]>(TABLES.submissions, (table) =>
+      client
+        .from(table)
+        .update({ MaNguoiCham: currentUserId, TrangThai: 'Đang chấm' })
+        .eq('MaBaiThi', submissionId)
+        .or(`MaNguoiCham.is.null,MaNguoiCham.eq.${currentUserId}`)
+        .select('MaBaiThi,MaNguoiCham,TrangThai'),
+    );
+
+    if ((result.data || []).length > 0) {
+      return true;
+    }
+  } catch (error: any) {
+    throw toAppError(error);
+  }
+
+  const current = await queryFirst<any[]>(TABLES.submissions, (table) =>
+    client.from(table).select('MaBaiThi,MaNguoiCham,TrangThai').eq('MaBaiThi', submissionId).limit(1),
+  );
+  const row = (current.data || [])[0];
+  if (row?.MaNguoiCham && row.MaNguoiCham !== currentUserId) {
+    throw new Error('Bài thi này đã được giảng viên khác nhận chấm.');
+  }
+  throw new Error('Không thể nhận chấm bài thi này.');
 }
 
 export async function fetchLecturerGradingDetail(submissionId: string) {
@@ -1157,7 +1218,6 @@ export async function fetchLecturerGradingDetail(submissionId: string) {
     content: questionMap.get(row.MaCauHoi)?.NoiDung || row.MaCauHoi || '',
     max: maxScoreMap.get(row.MaCauHoi) || 1,
     score: Number((row.DiemDat ?? row.DiemTuDong) || 0),
-    feedback: row.NhanXet || '',
     questionType: normalizeQuestionKind(questionMap.get(row.MaCauHoi)?.LoaiCauHoi),
     choices: parseChoices(questionMap.get(row.MaCauHoi)?.LuaChon),
     correctAnswer: questionMap.get(row.MaCauHoi)?.DapAnDung || '',
@@ -1181,16 +1241,17 @@ export async function fetchLecturerGradingDetail(submissionId: string) {
 
 export async function saveLecturerGradingDetail(payload: {
   submissionId: string;
-  rows: Array<{ detailId: string; questionId: string; maxScore: number; score: number; feedback: string; questionType: QuestionKind; studentAnswer?: string; correctAnswer?: string }>;
+  rows: Array<{ detailId: string; questionId: string; maxScore: number; score: number; questionType: QuestionKind; studentAnswer?: string; correctAnswer?: string }>;
 }) {
   const client = getClient();
+  await claimLecturerGradingSubmission(payload.submissionId);
   const updates = payload.rows.map((row) => {
     const autoScore = row.questionType === 'TRAC_NGHIEM' ? autoGradeMcq(row.studentAnswer, row.correctAnswer, row.maxScore) : null;
     const finalScore = row.questionType === 'TRAC_NGHIEM' ? autoScore || 0 : Number(row.score || 0);
     return {
     MaChiTietCham: row.detailId,
     DiemDat: finalScore,
-    NhanXet: row.feedback,
+    NhanXet: null,
     CauTraLoi: row.studentAnswer || null,
     DiemTuDong: autoScore,
     ChamTuDong: row.questionType === 'TRAC_NGHIEM',

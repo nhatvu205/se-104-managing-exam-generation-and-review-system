@@ -18,7 +18,6 @@ import AdminSubjectFormPage from './pages/admin/AdminSubjectFormPage';
 import AdminSystemRulesPage from './pages/admin/AdminSystemRulesPage';
 import AdminYearReportExportPage from './pages/admin/AdminYearReportExportPage';
 import LecturerGradingSummaryPage from './pages/lecturer/LecturerGradingSummaryPage';
-import LecturerRegradeManagementPage from './pages/lecturer/LecturerRegradeManagementPage';
 import LecturerYearReportPage from './pages/lecturer/LecturerYearReportPage';
 import LecturerQuestionBankPage from './pages/lecturer/LecturerQuestionBankPage';
 import LecturerQuestionFormPage from './pages/lecturer/LecturerQuestionFormPage';
@@ -170,10 +169,10 @@ export default function App() {
 
         <Route path="/lecturer/grading-summary" element={requireAuth(<LecturerGradingSummaryPage />, 'lecturer')} />
         <Route path="/lecturer" element={<Navigate to="/lecturer/year-report" replace />} />
-        <Route path="/lecturer/regrades" element={requireAuth(<LecturerRegradeManagementPage />, 'lecturer')} />
         <Route path="/lecturer/year-report" element={requireAuth(<LecturerYearReportPage />, 'lecturer')} />
         <Route path="/lecturer/questions" element={requireAuth(<LecturerQuestionBankPage />, 'lecturer')} />
         <Route path="/lecturer/questions/create" element={requireAuth(<LecturerQuestionFormPage />, 'lecturer')} />
+        <Route path="/lecturer/questions/:id/edit" element={requireAuth(<LecturerQuestionFormPage />, 'lecturer')} />
         <Route path="/lecturer/exams" element={requireAuth(<LecturerExamListPage />, 'lecturer')} />
         <Route path="/lecturer/exams/create" element={requireAuth(<LecturerExamBuilderPage />, 'lecturer')} />
         <Route path="/lecturer/exams/:id/edit" element={requireAuth(<LecturerExamBuilderPage />, 'lecturer')} />

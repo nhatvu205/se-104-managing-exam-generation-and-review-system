@@ -121,6 +121,7 @@ export default function LecturerQuestionBankPage() {
                     <th>Độ khó</th>
                     <th>Trạng thái</th>
                     <th>Cập nhật</th>
+                    <th>Tác vụ</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -136,6 +137,13 @@ export default function LecturerQuestionBankPage() {
                         <span className={`badge ${String(item.status || '').toLowerCase().includes('đang') ? 'badge-success' : 'badge-warning'}`}>{item.status || '-'}</span>
                       </td>
                       <td data-label="Cập nhật">{item.updatedAt}</td>
+                      <td data-label="Tác vụ">
+                        {item.authorId === lecturer.userId ? (
+                          <Link className="btn btn-secondary" to={`/lecturer/questions/${item.id}/edit`}>Sửa</Link>
+                        ) : (
+                          <span style={{ color: '#9ca3af', fontSize: 13 }}>Chỉ người tạo mới sửa</span>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>

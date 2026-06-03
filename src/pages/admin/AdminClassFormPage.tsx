@@ -11,7 +11,6 @@ export default function AdminClassFormPage() {
 
   const [form, setForm] = useState({
     code: '',
-    name: '',
     semesterCode: '',
     subjectCode: '',
     lecturerId: '',
@@ -41,7 +40,6 @@ export default function AdminClassFormPage() {
           semesterCode: currentClass?.semesterCode || semesterRows[0]?.code || '',
           lecturerId: currentClass?.lecturerId || lecturerRows[0]?.value || '',
           code: currentClass?.code || '',
-          name: currentClass?.name || '',
           studentCount: String(currentClass?.studentCount || 0),
           room: currentClass?.room || '',
           schedule: currentClass?.schedule || '',
@@ -63,7 +61,7 @@ export default function AdminClassFormPage() {
       await saveClass({
         id: isEdit ? classId : undefined,
         code: form.code,
-        name: form.name,
+        name: form.code,
         semesterCode: form.semesterCode,
         subjectCode: form.subjectCode,
         lecturerId: form.lecturerId,
@@ -113,10 +111,6 @@ export default function AdminClassFormPage() {
             <div className="field">
               <label>Mã lớp</label>
               <input className="input" value={form.code} onChange={(e) => setField('code', e.target.value)} disabled={isEdit} />
-            </div>
-            <div className="field">
-              <label>Tên lớp</label>
-              <input className="input" value={form.name} onChange={(e) => setField('name', e.target.value)} />
             </div>
             <div className="field">
               <label>Môn học</label>

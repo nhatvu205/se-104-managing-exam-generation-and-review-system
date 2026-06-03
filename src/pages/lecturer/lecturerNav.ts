@@ -5,7 +5,6 @@ export const lecturerNavItems = [
   { label: 'Đề thi của tôi', to: '/lecturer/exams' },
   { label: 'Tra cứu đề thi', to: '/lecturer/search' },
   { label: 'Chấm thi', to: '/lecturer/grading' },
-  { label: 'Quản lý phúc khảo', to: '/lecturer/regrades' },
   { label: 'Tổng hợp điểm lớp', to: '/lecturer/grading-summary' },
   { label: 'Báo cáo năm', to: '/lecturer/year-report' },
 ] as const;

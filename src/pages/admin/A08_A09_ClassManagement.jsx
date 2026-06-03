@@ -33,7 +33,7 @@ export function ClassListPage({ onNavigate }) {
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
     if (!q) return rows;
-    return rows.filter((r) => [r.code, r.name, r.subjectName, r.lecturerName].join(' ').toLowerCase().includes(q));
+    return rows.filter((r) => [r.code, r.subjectName, r.lecturerName].join(' ').toLowerCase().includes(q));
   }, [rows, search]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
@@ -53,7 +53,6 @@ export function ClassListPage({ onNavigate }) {
 
   const columns = [
     { key: 'code', label: 'Mã lớp' },
-    { key: 'name', label: 'Tên lớp' },
     { key: 'subjectName', label: 'Môn học' },
     { key: 'lecturerName', label: 'Giảng viên' },
     { key: 'academicYearName', label: 'Năm học' },
@@ -84,7 +83,7 @@ export function ClassListPage({ onNavigate }) {
       ) : (
         <Card>
           <div style={{ padding: '16px 20px', borderBottom: `1px solid ${tokens.border}` }}>
-            <Input value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} placeholder="Tìm lớp học..." />
+            <Input value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} placeholder="Tìm theo mã lớp / môn học / giảng viên..." />
           </div>
 
           <Table columns={columns} data={paginated} emptyMessage={loading ? 'Đang tải...' : 'Không có dữ liệu'} />
@@ -101,8 +100,10 @@ export function ClassListPage({ onNavigate }) {
         open={!!deleteTarget}
         title="Xóa lớp học"
         message={`Bạn có chắc muốn xóa lớp ${deleteTarget?.code || ''}?`}
-        onCancel={() => setDeleteTarget(null)}
-        onConfirm={handleDelete}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={() => {
+          void handleDelete();
+        }}
         confirmLabel="Xóa"
       />
     </AdminLayout>
