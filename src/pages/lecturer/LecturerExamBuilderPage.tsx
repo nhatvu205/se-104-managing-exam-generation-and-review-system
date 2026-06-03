@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import RoleLayout from '../../components/RoleLayout';
 import { Btn, PageState } from '../../layouts/AdminLayout';
 import { downloadCsv, parseCsv, readCsvFile } from '../../lib/csv';
-import { EXAM_STATUS_OPTIONS, fetchActiveSemesters, fetchLecturerExamById, fetchLecturerQuestionBank, fetchSubjects, saveLecturerExam } from '../../lib/supabaseData';
+import { EXAM_STATUS_OPTIONS, fetchActiveSemesters, fetchExamRuleConfig, fetchLecturerExamById, fetchLecturerQuestionBank, fetchSubjects, saveLecturerExam } from '../../lib/supabaseData';
 import { withLecturerActive } from './lecturerNav';
 import { useLecturerIdentity } from './useLecturerIdentity';
 
@@ -28,20 +28,28 @@ export default function LecturerExamBuilderPage() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [importMessage, setImportMessage] = useState('');
+  const [ruleConfig, setRuleConfig] = useState({
+    maxQuestionsPerExam: 250,
+    minQuestionsPerExam: 1,
+    maxExamsPerSubject: 999,
+    defaultDurationMinutes: 60,
+  });
 
   const load = async () => {
     setLoading(true);
     setError('');
     try {
-      const [subjectData, semesterData, questionData, currentExam] = await Promise.all([
+      const [subjectData, semesterData, questionData, currentExam, examRules] = await Promise.all([
         fetchSubjects(),
         fetchActiveSemesters(),
         fetchLecturerQuestionBank(),
         id ? fetchLecturerExamById(id) : Promise.resolve(null),
+        fetchExamRuleConfig(),
       ]);
       setSubjects(subjectData);
       setSemesters(semesterData);
       setQuestionBank(questionData);
+      setRuleConfig(examRules);
       if (currentExam) {
         setTitle(currentExam.title || '');
         setSubjectCode(currentExam.subjectCode || subjectData[0]?.code || '');
@@ -56,6 +64,7 @@ export default function LecturerExamBuilderPage() {
         if (subjectData[0]?.code) setSubjectCode(subjectData[0].code);
         if (semesterData[0]?.code) setSemesterCode(semesterData[0].code);
         setQuestionScores({});
+        setDurationMinutes(Number(examRules.defaultDurationMinutes || 60));
       }
     } catch (e: any) {
       setError(e.message || 'Không tải được dữ liệu tạo đề');
@@ -262,6 +271,9 @@ export default function LecturerExamBuilderPage() {
             <div className="field mt-16">
               <label>Số câu đã chọn</label>
               <input className="input" value={`${selectedIds.length} câu`} readOnly />
+              <p className="field-help">
+                Quy định hiện tại: tối thiểu {ruleConfig.minQuestionsPerExam} câu, tối đa {ruleConfig.maxQuestionsPerExam} câu cho mỗi đề; tối đa {ruleConfig.maxExamsPerSubject} đề cho mỗi môn.
+              </p>
             </div>
 
             <div className="table-wrap mt-16">

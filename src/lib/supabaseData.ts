@@ -578,6 +578,117 @@ export async function fetchSubjects() {
   }));
 }
 
+export async function fetchYearReportData(filters?: {
+  academicYear?: string;
+  semesterCode?: string;
+  subjectCode?: string;
+  examId?: string;
+  classId?: string;
+}) {
+  const client = getClient();
+  const currentUserId = await resolveCurrentDbUserId();
+  const role = await fetchCurrentUserRole(
+    (await client.auth.getUser()).data.user?.id || '',
+    (await client.auth.getUser()).data.user?.email || '',
+  );
+
+  const [examsRes, submissionsRes, detailsRes, subjectsRes, semestersRes, classesRes] = await Promise.all([
+    queryFirst<any[]>(TABLES.exams, (table) => client.from(table).select('*').order('NgaySoan', { ascending: false })),
+    queryFirst<any[]>(TABLES.submissions, (table) => client.from(table).select('*').order('GioNop', { ascending: false })),
+    queryFirst<any[]>(TABLES.examDetails, (table) => client.from(table).select('MaDeThi,MaCauHoi')),
+    queryFirst<any[]>(TABLES.subjects, (table) => client.from(table).select('MaMonHoc,TenMonHoc,Khoa')),
+    queryFirst<any[]>(TABLES.semesters, (table) => client.from(table).select('MaHocKyNamHoc,TenHocKy,NamHoc')),
+    queryFirstSafe<any[]>(TABLES.classes, (table) => client.from(table).select('MaLopHoc,MaMonHoc,MaHocKyNamHoc,MaGiangVien'), []),
+  ]);
+
+  const subjectMap = new Map((subjectsRes.data || []).map((row: any) => [row.MaMonHoc, row]));
+  const semesterMap = new Map((semestersRes.data || []).map((row: any) => [row.MaHocKyNamHoc, row]));
+  const detailCountMap: Record<string, number> = {};
+  (detailsRes.data || []).forEach((row: any) => {
+    detailCountMap[row.MaDeThi] = (detailCountMap[row.MaDeThi] || 0) + 1;
+  });
+
+  const classRows = (classesRes.data || []).map((row: any) => ({
+    id: row.MaLopHoc,
+    subjectCode: row.MaMonHoc,
+    semesterCode: row.MaHocKyNamHoc,
+    lecturerId: row.MaGiangVien,
+  }));
+
+  let exams = (examsRes.data || []).map((row: any) => {
+    const semester = semesterMap.get(row.MaHocKyNamHoc);
+    const subject = subjectMap.get(row.MaMonHoc);
+    const relatedClasses = classRows.filter((item) => item.subjectCode === row.MaMonHoc && item.semesterCode === row.MaHocKyNamHoc);
+    return {
+      id: row.MaDeThi,
+      title: row.GhiChu || row.MaDeThi,
+      subjectCode: row.MaMonHoc || '',
+      subjectName: subject?.TenMonHoc || row.MaMonHoc || '',
+      faculty: subject?.Khoa || '',
+      semesterCode: row.MaHocKyNamHoc || '',
+      semesterName: semester?.TenHocKy || '',
+      academicYear: semester?.NamHoc || '',
+      questionCount: detailCountMap[row.MaDeThi] || 0,
+      classIds: relatedClasses.map((item) => item.id),
+      authorId: row.MaNguoiSoan || '',
+      status: row.TrangThai || '',
+    };
+  });
+
+  if (role === 'lecturer' && currentUserId) {
+    const profile = await fetchCurrentUserProfile();
+    exams = exams.filter((row) => row.authorId === currentUserId || row.faculty === profile.faculty);
+  }
+
+  const filteredExams = exams.filter((row) => {
+    if (filters?.academicYear && row.academicYear !== filters.academicYear) return false;
+    if (filters?.semesterCode && row.semesterCode !== filters.semesterCode) return false;
+    if (filters?.subjectCode && row.subjectCode !== filters.subjectCode) return false;
+    if (filters?.examId && row.id !== filters.examId) return false;
+    if (filters?.classId && !row.classIds.includes(filters.classId)) return false;
+    return true;
+  });
+
+  const examIdSet = new Set(filteredExams.map((row) => row.id));
+  const filteredSubmissions = (submissionsRes.data || []).filter((row: any) => examIdSet.has(row.MaDeThi));
+
+  const rows = filteredExams.map((row) => {
+    const matchedSubmissions = filteredSubmissions.filter((item: any) => item.MaDeThi === row.id);
+    const graded = matchedSubmissions.filter((item: any) => String(item.TrangThai || '').includes('Đã chấm')).length;
+    const grading = matchedSubmissions.filter((item: any) => String(item.TrangThai || '').includes('Đang chấm')).length;
+    const ungraded = matchedSubmissions.filter((item: any) => !item.TrangThai || String(item.TrangThai || '').includes('Chưa chấm')).length;
+    const gradedScores = matchedSubmissions
+      .map((item: any) => Number(item.TongDiem))
+      .filter((value: number) => !Number.isNaN(value) && value > 0);
+    return {
+      ...row,
+      submissionCount: matchedSubmissions.length,
+      gradedCount: graded,
+      gradingCount: grading,
+      ungradedCount: ungraded,
+      averageScore: gradedScores.length ? Number((gradedScores.reduce((sum, item) => sum + item, 0) / gradedScores.length).toFixed(2)) : 0,
+      classDisplay: row.classIds.join(', ') || '-',
+    };
+  });
+
+  const filterOptions = {
+    academicYears: Array.from(new Set(exams.map((row) => row.academicYear).filter(Boolean))),
+    semesters: Array.from(new Map(exams.map((row) => [row.semesterCode, { code: row.semesterCode, name: row.semesterName, academicYear: row.academicYear }])).values()),
+    subjects: Array.from(new Map(exams.map((row) => [row.subjectCode, { code: row.subjectCode, name: row.subjectName }])).values()),
+    exams: exams.map((row) => ({ id: row.id, title: row.title })),
+    classes: Array.from(new Map(classRows.map((row) => [row.id, { id: row.id, subjectCode: row.subjectCode, semesterCode: row.semesterCode }])).values()),
+  };
+
+  const summary = {
+    totalExams: rows.length,
+    totalSubmissions: rows.reduce((sum, row) => sum + row.submissionCount, 0),
+    totalQuestions: rows.reduce((sum, row) => sum + row.questionCount, 0),
+    gradedCount: rows.reduce((sum, row) => sum + row.gradedCount, 0),
+  };
+
+  return { rows, summary, filterOptions };
+}
+
 export async function fetchSemesters() {
   const client = getClient();
   const result = await queryFirst<any[]>(TABLES.semesters, (table) => client.from(table).select('*').order('NgayBatDau', { ascending: false }));
@@ -1023,6 +1134,13 @@ export async function saveLecturerExam(payload: {
   if (!payload.questionIds.length) {
     throw new Error('Vui lòng chọn ít nhất 1 câu hỏi để tạo đề.');
   }
+  const ruleConfig = await fetchExamRuleConfig();
+  if (payload.questionIds.length < ruleConfig.minQuestionsPerExam) {
+    throw new Error(`Mỗi đề thi phải có ít nhất ${ruleConfig.minQuestionsPerExam} câu hỏi theo quy định hệ thống.`);
+  }
+  if (payload.questionIds.length > ruleConfig.maxQuestionsPerExam) {
+    throw new Error(`Mỗi đề thi chỉ được có tối đa ${ruleConfig.maxQuestionsPerExam} câu hỏi theo quy định hệ thống.`);
+  }
 
   const examId = payload.id || `DT${Date.now()}`;
   const examRow = {
@@ -1052,6 +1170,14 @@ export async function saveLecturerExam(payload: {
 
   if (detailRows.some((item) => item.DiemToiDa <= 0)) {
     throw new Error('Mỗi câu hỏi trong đề thi phải có điểm tối đa lớn hơn 0.');
+  }
+
+  const examsBySubjectRes = await queryFirst<any[]>(TABLES.exams, (table) =>
+    client.from(table).select('MaDeThi').eq('MaMonHoc', payload.subjectCode),
+  );
+  const examsBySubjectCount = (examsBySubjectRes.data || []).filter((row: any) => !payload.id || row.MaDeThi !== payload.id).length;
+  if (examsBySubjectCount >= ruleConfig.maxExamsPerSubject) {
+    throw new Error(`Môn học này đã đạt số đề thi tối đa (${ruleConfig.maxExamsPerSubject}) theo quy định hệ thống.`);
   }
 
   try {
@@ -1341,6 +1467,36 @@ export async function fetchSystemParams() {
     MoTa: row.MoTa || '',
     NgayCapNhat: row.NgayCapNhat || '',
   }));
+}
+
+function parseSystemParamValue(rawValue: any, dataType?: string) {
+  const type = String(dataType || 'TEXT').toUpperCase();
+  if (type === 'INT' || type === 'FLOAT') {
+    const parsed = Number(rawValue);
+    return Number.isNaN(parsed) ? 0 : parsed;
+  }
+  if (type === 'BOOLEAN') {
+    return ['1', 'true', 'yes', 'on'].includes(String(rawValue ?? '').trim().toLowerCase());
+  }
+  return String(rawValue ?? '');
+}
+
+export async function fetchSystemRuleMap() {
+  const rows = await fetchSystemParams();
+  return rows.reduce((acc: Record<string, any>, row) => {
+    acc[row.MaThamSo] = parseSystemParamValue(row.GiaTri, row.KieuDuLieu);
+    return acc;
+  }, {});
+}
+
+export async function fetchExamRuleConfig() {
+  const rules = await fetchSystemRuleMap();
+  return {
+    maxQuestionsPerExam: Math.max(1, Number(rules.MAX_CAU_HOI_DE || 250)),
+    minQuestionsPerExam: Math.max(1, Number(rules.MIN_CAU_HOI_DE || 1)),
+    maxExamsPerSubject: Math.max(1, Number(rules.SO_DE_TOI_DA_MON || 999)),
+    defaultDurationMinutes: Math.max(15, Number(rules.THOI_GIAN_LAM_BAI_MAC_DINH || 60)),
+  };
 }
 
 export async function saveSystemParams(rows: Array<{ MaThamSo: string; GiaTri: string | number }>) {

@@ -17,7 +17,6 @@ import ErrorNoPermissionPage from './pages/shared/ErrorNoPermissionPage';
 import AdminSubjectFormPage from './pages/admin/AdminSubjectFormPage';
 import AdminSystemRulesPage from './pages/admin/AdminSystemRulesPage';
 import AdminYearReportExportPage from './pages/admin/AdminYearReportExportPage';
-import LecturerGradingSummaryPage from './pages/lecturer/LecturerGradingSummaryPage';
 import LecturerYearReportPage from './pages/lecturer/LecturerYearReportPage';
 import LecturerQuestionBankPage from './pages/lecturer/LecturerQuestionBankPage';
 import LecturerQuestionFormPage from './pages/lecturer/LecturerQuestionFormPage';
@@ -170,7 +169,6 @@ export default function App() {
         <Route path="/admin/system-rules" element={requireAuth(<AdminSystemRulesPage />, 'admin')} />
         <Route path="/admin/year-report-export" element={requireAuth(<AdminYearReportExportPage />, 'admin')} />
 
-        <Route path="/lecturer/grading-summary" element={requireAuth(<LecturerGradingSummaryPage />, 'lecturer')} />
         <Route path="/lecturer" element={<Navigate to="/lecturer/year-report" replace />} />
         <Route path="/lecturer/year-report" element={requireAuth(<LecturerYearReportPage />, 'lecturer')} />
         <Route path="/lecturer/subjects" element={requireAuth(<LecturerSubjectListPage />, 'lecturer')} />
