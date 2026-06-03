@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import RoleLayout from '../../components/RoleLayout';
 import { Btn, PageState } from '../../layouts/AdminLayout';
 import { downloadCsv, parseCsv, readCsvFile } from '../../lib/csv';
-import { EXAM_STATUS_OPTIONS, fetchActiveSemesters, fetchExamRuleConfig, fetchLecturerExamById, fetchLecturerQuestionBank, fetchSubjects, saveLecturerExam } from '../../lib/supabaseData';
+import { EXAM_STATUS_OPTIONS, fetchActiveSemesters, fetchExamGradedCount, fetchExamRuleConfig, fetchLecturerExamById, fetchLecturerQuestionBank, fetchSubjects, saveLecturerExam } from '../../lib/supabaseData';
 import { withLecturerActive } from './lecturerNav';
 import { useLecturerIdentity } from './useLecturerIdentity';
 
@@ -28,6 +28,7 @@ export default function LecturerExamBuilderPage() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [importMessage, setImportMessage] = useState('');
+  const [gradedWarning, setGradedWarning] = useState('');
   const [ruleConfig, setRuleConfig] = useState({
     maxQuestionsPerExam: 5,
     maxDurationMinutes: 180,
@@ -51,6 +52,12 @@ export default function LecturerExamBuilderPage() {
       setSemesters(semesterData);
       setQuestionBank(questionData);
       setRuleConfig(examRules);
+      if (id) {
+        const gradedCount = await fetchExamGradedCount(id);
+        if (gradedCount > 0) {
+          setGradedWarning(`Đề thi này đã có ${gradedCount} bài thi được chấm điểm. Thay đổi câu hỏi hoặc điểm sẽ không ảnh hưởng đến kết quả chấm đã có.`);
+        }
+      }
       if (currentExam) {
         setTitle(currentExam.title || '');
         setSubjectCode(currentExam.subjectCode || subjectData[0]?.code || '');
@@ -197,6 +204,12 @@ export default function LecturerExamBuilderPage() {
           </button>
         </div>
       </header>
+
+      {gradedWarning && (
+        <div style={{ background: '#fef3c7', border: '1px solid #d97706', borderRadius: 8, padding: '12px 16px', marginBottom: 16, color: '#92400e', fontSize: 14 }}>
+          ⚠️ {gradedWarning}
+        </div>
+      )}
 
       {loading ? (
         <PageState kind="loading" title="Đang tải biểu mẫu..." />

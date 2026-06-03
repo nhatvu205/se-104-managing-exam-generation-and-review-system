@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import RoleLayout from '../../components/RoleLayout';
 import { Btn, PageState } from '../../layouts/AdminLayout';
-import { fetchLecturerExamList } from '../../lib/supabaseData';
+import { fetchAllExamList } from '../../lib/supabaseData';
 import { withLecturerActive } from './lecturerNav';
 import { useLecturerIdentity } from './useLecturerIdentity';
 
@@ -18,7 +18,7 @@ export default function LecturerSearchExamPage() {
     setLoading(true);
     setError('');
     try {
-      const data = await fetchLecturerExamList();
+      const data = await fetchAllExamList();
       setRows(data);
     } catch (e: any) {
       setError(e.message || 'Không tải được dữ liệu tra cứu');

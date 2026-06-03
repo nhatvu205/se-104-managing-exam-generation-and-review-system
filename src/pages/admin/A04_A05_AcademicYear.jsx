@@ -13,7 +13,7 @@ export function AcademicYearListPage({ onNavigate }) {
   const [toast, setToast] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [editTarget, setEditTarget] = useState(null);
-  const [editForm, setEditForm] = useState({ namHoc: '', trangThai: 'active', ngayBatDau: '', ngayKetThuc: '' });
+  const [editForm, setEditForm] = useState({ namHoc: '', ngayBatDau: '', ngayKetThuc: '' });
 
   const setEditField = (key) => (e) => setEditForm((prev) => ({ ...prev, [key]: e.target.value }));
 
@@ -61,7 +61,6 @@ export function AcademicYearListPage({ onNavigate }) {
       await updateAcademicYear({
         originalNamHoc: editTarget.code,
         namHoc: editForm.namHoc.trim(),
-        trangThai: editForm.trangThai,
         ngayBatDau: editForm.ngayBatDau,
         ngayKetThuc: editForm.ngayKetThuc,
       });
@@ -85,7 +84,7 @@ export function AcademicYearListPage({ onNavigate }) {
       label: 'Thao tác',
       render: (_, row) => (
         <div style={{ display: 'flex', gap: 8 }}>
-          <Btn size="sm" variant="secondary" onClick={() => { setEditTarget(row); setEditForm({ namHoc: row.name || '', trangThai: row.status || 'active', ngayBatDau: row.startDate || '', ngayKetThuc: row.endDate || '' }); }}>Sửa</Btn>
+          <Btn size="sm" variant="secondary" onClick={() => { setEditTarget(row); setEditForm({ namHoc: row.name || '', ngayBatDau: row.startDate || '', ngayKetThuc: row.endDate || '' }); }}>Sửa</Btn>
           <Btn size="sm" variant="danger" onClick={() => setDeleteTarget(row)}>Xóa</Btn>
         </div>
       ),
@@ -147,13 +146,6 @@ export function AcademicYearListPage({ onNavigate }) {
           <div className="field">
             <label htmlFor="edit-ngayKetThuc">Ngày kết thúc</label>
             <input id="edit-ngayKetThuc" className="input" type="date" value={editForm.ngayKetThuc} onChange={setEditField('ngayKetThuc')} />
-          </div>
-          <div className="field" style={{ gridColumn: '1 / -1' }}>
-            <label htmlFor="edit-trangThai">Trạng thái</label>
-            <select id="edit-trangThai" className="select" value={editForm.trangThai} onChange={setEditField('trangThai')}>
-              <option value="active">Đang hoạt động</option>
-              <option value="inactive">Không hoạt động</option>
-            </select>
           </div>
           <p className="field-help" style={{ gridColumn: '1 / -1', marginTop: 0 }}>
             Thay đổi sẽ áp dụng cho tất cả học kỳ thuộc năm học này.

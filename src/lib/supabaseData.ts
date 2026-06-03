@@ -529,6 +529,14 @@ export async function approvePendingUser(payload: {
 
 export async function deleteUser(userId: string) {
   const client = getClient();
+  const classesRes = await queryFirstSafe<any[]>(TABLES.classes, (table) =>
+    client.from(table).select('MaLopHoc').eq('MaGiangVien', userId), []
+  );
+  const assignedClasses = classesRes.data || [];
+  if (assignedClasses.length > 0) {
+    const preview = assignedClasses.slice(0, 3).map((r: any) => r.MaLopHoc).join(', ') + (assignedClasses.length > 3 ? '...' : '');
+    throw new Error(`Không thể xóa người dùng này vì đang phụ trách ${assignedClasses.length} lớp học (${preview}). Hãy gỡ phân công lớp trước.`);
+  }
   try {
     await queryFirst<any[]>(TABLES.users, (table) => client.from(table).delete().eq('MaNguoiDung', userId).select('MaNguoiDung'));
   } catch (error: any) {
@@ -708,16 +716,31 @@ export async function fetchSemesters() {
   const client = getClient();
   const result = await queryFirst<any[]>(TABLES.semesters, (table) => client.from(table).select('*').order('NgayBatDau', { ascending: false }));
 
-  return (result.data || []).map((r: any) => ({
-    id: r.MaHocKyNamHoc,
-    code: r.MaHocKyNamHoc,
-    name: r.TenHocKy || '',
-    academicYearName: r.NamHoc || '',
-    startDate: formatDate(r.NgayBatDau),
-    endDate: formatDate(r.NgayKetThuc),
-    status: normalizeStatus(r.TrangThai),
-    rawStatus: r.TrangThai || '',
-  }));
+  const today = new Date().toISOString().slice(0, 10);
+  return (result.data || []).map((r: any) => {
+    const startDate = formatDate(r.NgayBatDau);
+    const endDate = formatDate(r.NgayKetThuc);
+    let status: 'active' | 'inactive' | 'pending';
+    if (startDate && endDate) {
+      if (endDate < today || startDate > today) {
+        status = 'inactive';
+      } else {
+        status = 'active';
+      }
+    } else {
+      status = normalizeStatus(r.TrangThai);
+    }
+    return {
+      id: r.MaHocKyNamHoc,
+      code: r.MaHocKyNamHoc,
+      name: r.TenHocKy || '',
+      academicYearName: r.NamHoc || '',
+      startDate,
+      endDate,
+      status,
+      rawStatus: r.TrangThai || '',
+    };
+  });
 }
 
 export async function fetchActiveSemesters() {
@@ -782,6 +805,22 @@ export async function updateAcademicYear(payload: {
 
 export async function deleteAcademicYear(namHoc: string) {
   const client = getClient();
+  const semestersRes = await queryFirstSafe<any[]>(TABLES.semesters, (table) =>
+    client.from(table).select('MaHocKyNamHoc').eq('NamHoc', namHoc), []
+  );
+  const semesterIds = (semestersRes.data || []).map((r: any) => r.MaHocKyNamHoc);
+  if (semesterIds.length > 0) {
+    const [classesRes, examsRes] = await Promise.all([
+      queryFirstSafe<any[]>(TABLES.classes, (table) => client.from(table).select('MaLopHoc').in('MaHocKyNamHoc', semesterIds).limit(1), []),
+      queryFirstSafe<any[]>(TABLES.exams, (table) => client.from(table).select('MaDeThi').in('MaHocKyNamHoc', semesterIds).limit(1), []),
+    ]);
+    const reasons: string[] = [];
+    if ((classesRes.data || []).length > 0) reasons.push('có lớp học thuộc các học kỳ trong năm này');
+    if ((examsRes.data || []).length > 0) reasons.push('có đề thi thuộc các học kỳ trong năm này');
+    if (reasons.length > 0) {
+      throw new Error(`Không thể xóa năm học này vì ${reasons.join(', ')}. Hãy xóa các dữ liệu liên quan trước.`);
+    }
+  }
   try {
     await queryFirst<any[]>(TABLES.semesters, (table) =>
       client.from(table).delete().eq('NamHoc', namHoc).select('MaHocKyNamHoc'),
@@ -1025,6 +1064,18 @@ export async function saveSubject(payload: {
 
 export async function deleteSubject(subjectId: string) {
   const client = getClient();
+  const [questionsRes, examsRes, classesRes] = await Promise.all([
+    queryFirstSafe<any[]>(TABLES.questions, (table) => client.from(table).select('MaCauHoi').eq('MaMonHoc', subjectId).limit(1), []),
+    queryFirstSafe<any[]>(TABLES.exams, (table) => client.from(table).select('MaDeThi').eq('MaMonHoc', subjectId).limit(1), []),
+    queryFirstSafe<any[]>(TABLES.classes, (table) => client.from(table).select('MaLopHoc').eq('MaMonHoc', subjectId).limit(1), []),
+  ]);
+  const reasons: string[] = [];
+  if ((questionsRes.data || []).length > 0) reasons.push('có câu hỏi trong ngân hàng đề');
+  if ((examsRes.data || []).length > 0) reasons.push('có đề thi liên kết');
+  if ((classesRes.data || []).length > 0) reasons.push('có lớp học đang sử dụng');
+  if (reasons.length > 0) {
+    throw new Error(`Không thể xóa môn học này vì ${reasons.join(', ')}. Hãy xóa các dữ liệu liên quan trước.`);
+  }
   try {
     await queryFirst<any[]>(TABLES.subjects, (table) => client.from(table).delete().eq('MaMonHoc', subjectId).select('MaMonHoc'));
   } catch (error: any) {
@@ -1034,6 +1085,15 @@ export async function deleteSubject(subjectId: string) {
 
 export async function deleteLecturerQuestion(questionId: string) {
   const client = getClient();
+  const usageRes = await queryFirstSafe<any[]>(TABLES.examDetails, (table) =>
+    client.from(table).select('MaDeThi').eq('MaCauHoi', questionId), []
+  );
+  const usedInExams = usageRes.data || [];
+  if (usedInExams.length > 0) {
+    const examIds = [...new Set(usedInExams.map((r: any) => r.MaDeThi))];
+    const preview = examIds.slice(0, 3).join(', ') + (examIds.length > 3 ? '...' : '');
+    throw new Error(`Không thể xóa câu hỏi này vì đang được sử dụng trong ${examIds.length} đề thi (${preview}). Hãy xóa câu hỏi khỏi đề thi trước.`);
+  }
   try {
     await queryFirst<any[]>(TABLES.questions, (table) =>
       client.from(table).delete().eq('MaCauHoi', questionId).select('MaCauHoi'),
@@ -1080,6 +1140,15 @@ export async function saveLecturerQuestion(payload: {
   } else if (!String(payload.rubric || '').trim()) {
     throw new Error('Câu hỏi tự luận bắt buộc có rubric chấm.');
   }
+
+  if (!payload.id) {
+    const dupRes = await queryFirstSafe<any[]>(TABLES.questions, (table) =>
+      client.from(table).select('MaCauHoi').eq('MaMonHoc', payload.subjectCode).eq('NoiDung', payload.content.trim()).limit(1), []
+    );
+    if ((dupRes.data || []).length > 0)
+      throw new Error('Câu hỏi có nội dung tương tự đã tồn tại trong môn học này.');
+  }
+
   const row = {
     MaCauHoi: id,
     NgaySoan: new Date().toISOString().slice(0, 10),
@@ -1142,6 +1211,44 @@ export async function fetchLecturerExamList() {
   }));
 }
 
+export async function fetchAllExamList() {
+  const client = getClient();
+  const [examsRes, subjectsRes, semestersRes, detailsRes] = await Promise.all([
+    queryFirst<any[]>(TABLES.exams, (table) => client.from(table).select('*').order('NgaySoan', { ascending: false })),
+    queryFirst<any[]>(TABLES.subjects, (table) => client.from(table).select('MaMonHoc,TenMonHoc')),
+    queryFirst<any[]>(TABLES.semesters, (table) => client.from(table).select('MaHocKyNamHoc,TenHocKy,NamHoc')),
+    queryFirst<any[]>(TABLES.examDetails, (table) => client.from(table).select('MaDeThi')),
+  ]);
+  const subjectMap = new Map((subjectsRes.data || []).map((s: any) => [s.MaMonHoc, s.TenMonHoc]));
+  const semesterMap = new Map((semestersRes.data || []).map((s: any) => [s.MaHocKyNamHoc, `${s.TenHocKy || ''} ${s.NamHoc || ''}`.trim()]));
+  const questionCountMap: Record<string, number> = {};
+  (detailsRes.data || []).forEach((row: any) => {
+    questionCountMap[row.MaDeThi] = (questionCountMap[row.MaDeThi] || 0) + 1;
+  });
+  return (examsRes.data || []).map((row: any) => ({
+    id: row.MaDeThi,
+    title: row.GhiChu || `Đề ${row.MaDeThi}`,
+    subjectCode: row.MaMonHoc || '',
+    subjectName: subjectMap.get(row.MaMonHoc) || row.MaMonHoc || '',
+    semester: semesterMap.get(row.MaHocKyNamHoc) || row.MaHocKyNamHoc || '',
+    questionCount: questionCountMap[row.MaDeThi] || 0,
+    durationMinutes: Number(row.ThoiLuongLamBai || 0),
+    status: normalizeExamStatus(row.TrangThai),
+    updatedAt: formatDate(row.NgaySoan),
+    authorId: row.MaNguoiSoan || '',
+  }));
+}
+
+export async function fetchExamGradedCount(examId: string): Promise<number> {
+  const client = getClient();
+  const res = await queryFirstSafe<any[]>(
+    TABLES.submissions,
+    (table) => client.from(table).select('MaBaiThi,TrangThai').eq('MaDeThi', examId),
+    []
+  );
+  return (res.data || []).filter((r: any) => String(r.TrangThai || '').includes('Đã chấm')).length;
+}
+
 export async function saveLecturerExam(payload: {
   id?: string;
   title: string;
@@ -1201,6 +1308,10 @@ export async function saveLecturerExam(payload: {
     throw new Error('Mỗi câu hỏi trong đề thi phải có điểm tối đa lớn hơn 0.');
   }
 
+  const invalidScore = detailRows.filter(item => item.DiemToiDa > ruleConfig.maxScore || item.DiemToiDa < ruleConfig.minScore);
+  if (invalidScore.length > 0)
+    throw new Error(`Điểm câu hỏi phải trong khoảng ${ruleConfig.minScore}–${ruleConfig.maxScore}. Có ${invalidScore.length} câu vi phạm quy định hệ thống.`);
+
   try {
     if (payload.id) {
       await queryFirst<any[]>(TABLES.exams, (table) => client.from(table).update(examRow).eq('MaDeThi', payload.id).select('MaDeThi'));
@@ -1247,6 +1358,17 @@ export async function updateLecturerExamStatus(examId: string, status: string) {
 
 export async function deleteLecturerExam(examId: string) {
   const client = getClient();
+  const submissionsRes = await queryFirstSafe<any[]>(TABLES.submissions, (table) =>
+    client.from(table).select('MaBaiThi,TrangThai').eq('MaDeThi', examId), []
+  );
+  const submissions = submissionsRes.data || [];
+  if (submissions.length > 0) {
+    const gradedCount = submissions.filter((r: any) => String(r.TrangThai || '').includes('Đã chấm')).length;
+    if (gradedCount > 0) {
+      throw new Error(`Không thể xóa đề thi này vì có ${gradedCount} bài thi đã được chấm. Hãy xóa bài thi trước.`);
+    }
+    throw new Error(`Không thể xóa đề thi này vì có ${submissions.length} bài thi liên kết. Hãy xóa bài thi trước.`);
+  }
   try {
     await queryFirst<any[]>(TABLES.examDetails, (table) => client.from(table).delete().eq('MaDeThi', examId).select('MaChiTietDeThi'));
     await queryFirst<any[]>(TABLES.exams, (table) => client.from(table).delete().eq('MaDeThi', examId).select('MaDeThi'));
@@ -1578,6 +1700,11 @@ export async function saveAcademicYear(payload: {
 }) {
   const client = getClient();
   validateDateRange(payload.ngayBatDau, payload.ngayKetThuc);
+  const existing = await queryFirst(TABLES.semesters, (table) =>
+    client.from(table).select('MaHocKyNamHoc').eq('NamHoc', payload.namHoc.trim()).eq('TenHocKy', payload.tenHocKy.trim()).limit(1)
+  );
+  if ((existing.data || []).length > 0)
+    throw new Error(`Học kỳ "${payload.tenHocKy}" trong năm học "${payload.namHoc}" đã tồn tại.`);
   const id = `HKNH_${Date.now()}`;
   const row = {
     MaHocKyNamHoc: id,
@@ -1614,6 +1741,24 @@ export async function saveSemester(payload: {
     TrangThai: payload.status || 'active',
   };
 
+  if (!payload.id) {
+    const existCode = await queryFirst(TABLES.semesters, (table) => client.from(table).select('MaHocKyNamHoc').eq('MaHocKyNamHoc', payload.code.trim()).limit(1));
+    if ((existCode.data || []).length > 0) throw new Error(`Mã học kỳ "${payload.code}" đã tồn tại.`);
+    const existName = await queryFirst(TABLES.semesters, (table) => client.from(table).select('MaHocKyNamHoc').eq('TenHocKy', payload.name.trim()).eq('NamHoc', payload.academicYearName.trim()).limit(1));
+    if ((existName.data || []).length > 0) throw new Error(`Học kỳ "${payload.name}" trong năm học "${payload.academicYearName}" đã tồn tại.`);
+    const yearMatch = payload.academicYearName.trim().match(/^(\d{4})[-–](\d{4})$/);
+    if (yearMatch && payload.startDate && payload.endDate) {
+      const yearFrom = parseInt(yearMatch[1]);
+      const yearTo = parseInt(yearMatch[2]);
+      const startYear = parseInt(payload.startDate.slice(0, 4));
+      const endYear = parseInt(payload.endDate.slice(0, 4));
+      if (startYear < yearFrom || startYear > yearTo)
+        throw new Error(`Ngày bắt đầu (${payload.startDate}) không nằm trong năm học ${payload.academicYearName}.`);
+      if (endYear < yearFrom || endYear > yearTo)
+        throw new Error(`Ngày kết thúc (${payload.endDate}) không nằm trong năm học ${payload.academicYearName}.`);
+    }
+  }
+
   try {
     if (payload.id) {
       await queryFirst<any[]>(TABLES.semesters, (table) =>
@@ -1630,6 +1775,16 @@ export async function saveSemester(payload: {
 
 export async function deleteSemester(semesterId: string) {
   const client = getClient();
+  const [classesRes, examsRes] = await Promise.all([
+    queryFirstSafe<any[]>(TABLES.classes, (table) => client.from(table).select('MaLopHoc').eq('MaHocKyNamHoc', semesterId).limit(1), []),
+    queryFirstSafe<any[]>(TABLES.exams, (table) => client.from(table).select('MaDeThi').eq('MaHocKyNamHoc', semesterId).limit(1), []),
+  ]);
+  const reasons: string[] = [];
+  if ((classesRes.data || []).length > 0) reasons.push('có lớp học trong học kỳ này');
+  if ((examsRes.data || []).length > 0) reasons.push('có đề thi trong học kỳ này');
+  if (reasons.length > 0) {
+    throw new Error(`Không thể xóa học kỳ này vì ${reasons.join(', ')}. Hãy xóa các dữ liệu liên quan trước.`);
+  }
   try {
     await queryFirst<any[]>(TABLES.semesters, (table) =>
       client.from(table).delete().eq('MaHocKyNamHoc', semesterId).select('MaHocKyNamHoc'),

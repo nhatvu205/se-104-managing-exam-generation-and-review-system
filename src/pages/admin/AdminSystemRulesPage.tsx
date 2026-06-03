@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import AdminLayout, { Btn, ConfirmDialog, PageState, Toast } from '../../layouts/AdminLayout';
-import { deleteSystemParam, fetchSystemParams, saveSystemParamEntries } from '../../lib/supabaseData';
+import AdminLayout, { Btn, PageState, Toast } from '../../layouts/AdminLayout';
+import { fetchSystemParams, saveSystemParamEntries } from '../../lib/supabaseData';
 
 export default function AdminSystemRulesPage() {
   const [params, setParams] = useState<any[]>([]);
@@ -8,7 +8,6 @@ export default function AdminSystemRulesPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [toast, setToast] = useState<any>(null);
-  const [deleteTarget, setDeleteTarget] = useState<any>(null);
 
   const load = async () => {
     setLoading(true);
@@ -44,21 +43,6 @@ export default function AdminSystemRulesPage() {
     }
   };
 
-  const handleDelete = async () => {
-    if (!deleteTarget) return;
-    setSaving(true);
-    try {
-      await deleteSystemParam(deleteTarget.MaThamSo);
-      setToast({ message: `Đã xóa tham số ${deleteTarget.MaThamSo}.`, type: 'success' });
-      setDeleteTarget(null);
-      await load();
-    } catch (e: any) {
-      setToast({ message: e.message || 'Không xóa được tham số.', type: 'error' });
-    } finally {
-      setSaving(false);
-    }
-  };
-
   return (
     <AdminLayout activeKey="system-rules" breadcrumbs={['Dashboard', 'Quy định hệ thống']}>
       <header className="page-header">
@@ -83,9 +67,6 @@ export default function AdminSystemRulesPage() {
                     <th>Mã</th>
                     <th>Tên tham số</th>
                     <th>Giá trị</th>
-                    <th>Kiểu dữ liệu</th>
-                    <th>Nhóm</th>
-                    <th>Mô tả</th>
                     <th>Thao tác</th>
                   </tr>
                 </thead>
@@ -99,23 +80,7 @@ export default function AdminSystemRulesPage() {
                       <td data-label="Giá trị">
                         <input className="input" value={row.GiaTri ?? ''} onChange={(e) => updateRow(row.MaThamSo, 'GiaTri', e.target.value)} />
                       </td>
-                      <td data-label="Kiểu dữ liệu">
-                        <select className="select" value={row.KieuDuLieu || 'TEXT'} onChange={(e) => updateRow(row.MaThamSo, 'KieuDuLieu', e.target.value)}>
-                          <option value="TEXT">TEXT</option>
-                          <option value="INT">INT</option>
-                          <option value="FLOAT">FLOAT</option>
-                          <option value="BOOLEAN">BOOLEAN</option>
-                        </select>
-                      </td>
-                      <td data-label="Nhóm">
-                        <input className="input" value={row.NhomThamSo || ''} onChange={(e) => updateRow(row.MaThamSo, 'NhomThamSo', e.target.value)} />
-                      </td>
-                      <td data-label="Mô tả">
-                        <input className="input" value={row.MoTa || ''} onChange={(e) => updateRow(row.MaThamSo, 'MoTa', e.target.value)} />
-                      </td>
-                      <td data-label="Thao tác">
-                        <Btn size="sm" variant="danger" onClick={() => setDeleteTarget(row)}>Xóa</Btn>
-                      </td>
+                      <td data-label="Thao tác"></td>
                     </tr>
                   ))}
                 </tbody>
@@ -127,17 +92,6 @@ export default function AdminSystemRulesPage() {
           </section>
         </>
       )}
-
-      <ConfirmDialog
-        open={!!deleteTarget}
-        title="Xóa tham số"
-        message={`Bạn có chắc muốn xóa tham số ${deleteTarget?.MaThamSo || ''}?`}
-        onClose={() => setDeleteTarget(null)}
-        onConfirm={() => {
-          void handleDelete();
-        }}
-        confirmLabel="Xóa"
-      />
 
       {toast ? <Toast message={toast.message} type={toast.type} onDismiss={() => setToast(null)} /> : null}
     </AdminLayout>

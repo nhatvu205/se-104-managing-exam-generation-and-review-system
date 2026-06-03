@@ -15,7 +15,6 @@ export default function AdminSemesterFormPage() {
     academicYearName: '',
     startDate: '',
     endDate: '',
-    status: 'active',
   });
   const [loading, setLoading] = useState(isEdit);
   const [saving, setSaving] = useState(false);
@@ -35,7 +34,6 @@ export default function AdminSemesterFormPage() {
           academicYearName: row.academicYearName || '',
           startDate: row.startDate || '',
           endDate: row.endDate || '',
-          status: row.status || 'active',
         });
       })
       .catch((e: any) => mounted && setError(e.message || 'Không tải được học kỳ'))
@@ -57,7 +55,6 @@ export default function AdminSemesterFormPage() {
         academicYearName: form.academicYearName,
         startDate: form.startDate,
         endDate: form.endDate,
-        status: form.status,
       });
       setToast({ message: isEdit ? 'Đã cập nhật học kỳ.' : 'Đã tạo học kỳ.', type: 'success' });
       setTimeout(() => navigate('/admin/semesters'), 500);
@@ -109,13 +106,6 @@ export default function AdminSemesterFormPage() {
             <div className="field">
               <label>Năm học</label>
               <input className="input" value={form.academicYearName} onChange={(e) => setField('academicYearName', e.target.value)} placeholder="VD: 2026-2027" />
-            </div>
-            <div className="field">
-              <label>Trạng thái</label>
-              <select className="select" value={form.status} onChange={(e) => setField('status', e.target.value)}>
-                <option value="active">Đang hoạt động</option>
-                <option value="inactive">Không hoạt động</option>
-              </select>
             </div>
             <div className="field">
               <label>Ngày bắt đầu</label>
