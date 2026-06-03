@@ -2,18 +2,8 @@ import { useEffect, useState } from 'react';
 import AdminLayout, { Btn, ConfirmDialog, PageState, Toast } from '../../layouts/AdminLayout';
 import { deleteSystemParam, fetchSystemParams, saveSystemParamEntries } from '../../lib/supabaseData';
 
-const EMPTY_FORM = {
-  MaThamSo: '',
-  TenThamSo: '',
-  GiaTri: '',
-  KieuDuLieu: 'TEXT',
-  NhomThamSo: '',
-  MoTa: '',
-};
-
 export default function AdminSystemRulesPage() {
   const [params, setParams] = useState<any[]>([]);
-  const [form, setForm] = useState(EMPTY_FORM);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -37,28 +27,8 @@ export default function AdminSystemRulesPage() {
     load();
   }, []);
 
-  const setField = (key: string, value: string) => setForm((prev: any) => ({ ...prev, [key]: value }));
-
   const updateRow = (id: string, key: string, value: string) => {
     setParams((prev) => prev.map((row) => (row.MaThamSo === id ? { ...row, [key]: value } : row)));
-  };
-
-  const handleCreate = async () => {
-    if (!form.MaThamSo.trim() || !form.TenThamSo.trim()) {
-      setToast({ message: 'Mã tham số và Tên tham số là bắt buộc.', type: 'error' });
-      return;
-    }
-    setSaving(true);
-    try {
-      await saveSystemParamEntries([form]);
-      setForm(EMPTY_FORM);
-      setToast({ message: 'Đã tạo tham số mới.', type: 'success' });
-      await load();
-    } catch (e: any) {
-      setToast({ message: e.message || 'Không tạo được tham số.', type: 'error' });
-    } finally {
-      setSaving(false);
-    }
   };
 
   const handleSaveAll = async () => {
@@ -94,7 +64,7 @@ export default function AdminSystemRulesPage() {
       <header className="page-header">
         <div>
           <h1 className="page-title">Quy định hệ thống</h1>
-          <p className="page-subtitle">Tạo mới và cập nhật danh sách tham số vận hành hệ thống.</p>
+          <p className="page-subtitle">Cập nhật tham số vận hành hệ thống.</p>
         </div>
       </header>
 
@@ -104,44 +74,6 @@ export default function AdminSystemRulesPage() {
         <PageState kind="loading" title="Đang tải tham số..." />
       ) : (
         <>
-          <section className="card">
-            <h2 className="section-title">Tạo tham số mới</h2>
-            <div className="form-grid two">
-              <div className="field">
-                <label>Mã tham số</label>
-                <input className="input" value={form.MaThamSo} onChange={(e) => setField('MaThamSo', e.target.value)} placeholder="VD: MAX_CAU_HOI_DE" />
-              </div>
-              <div className="field">
-                <label>Tên tham số</label>
-                <input className="input" value={form.TenThamSo} onChange={(e) => setField('TenThamSo', e.target.value)} placeholder="VD: Số câu tối đa / đề" />
-              </div>
-              <div className="field">
-                <label>Giá trị</label>
-                <input className="input" value={form.GiaTri} onChange={(e) => setField('GiaTri', e.target.value)} />
-              </div>
-              <div className="field">
-                <label>Kiểu dữ liệu</label>
-                <select className="select" value={form.KieuDuLieu} onChange={(e) => setField('KieuDuLieu', e.target.value)}>
-                  <option value="TEXT">TEXT</option>
-                  <option value="INT">INT</option>
-                  <option value="FLOAT">FLOAT</option>
-                  <option value="BOOLEAN">BOOLEAN</option>
-                </select>
-              </div>
-              <div className="field">
-                <label>Nhóm tham số</label>
-                <input className="input" value={form.NhomThamSo} onChange={(e) => setField('NhomThamSo', e.target.value)} placeholder="VD: DeThi" />
-              </div>
-              <div className="field">
-                <label>Mô tả</label>
-                <input className="input" value={form.MoTa} onChange={(e) => setField('MoTa', e.target.value)} />
-              </div>
-            </div>
-            <div className="actions">
-              <Btn variant="primary" onClick={handleCreate} disabled={saving}>{saving ? 'Đang lưu...' : 'Tạo tham số'}</Btn>
-            </div>
-          </section>
-
           <section className="card">
             <h2 className="section-title">Danh sách tham số chi tiết</h2>
             <div className="table-wrap">
