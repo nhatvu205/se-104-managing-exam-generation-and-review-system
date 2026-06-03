@@ -5,6 +5,7 @@ import { downloadCsv, downloadDoc } from '../../lib/csv';
 import { fetchYearReportData } from '../../lib/supabaseData';
 import { withLecturerActive } from './lecturerNav';
 import { useLecturerIdentity } from './useLecturerIdentity';
+import YearReportCharts from '../../components/YearReportCharts';
 
 export default function LecturerYearReportPage() {
   const lecturer = useLecturerIdentity();
@@ -168,6 +169,8 @@ export default function LecturerYearReportPage() {
             <article className="kpi"><p className="kpi-label">Số câu hỏi</p><p className="kpi-value">{summary.totalQuestions}</p></article>
             <article className="kpi"><p className="kpi-label">Đã chấm</p><p className="kpi-value">{summary.gradedCount}</p></article>
           </section>
+
+          <YearReportCharts rows={rows} />
 
           <section className="card">
             <h2 className="section-title">Chi tiết báo cáo</h2>

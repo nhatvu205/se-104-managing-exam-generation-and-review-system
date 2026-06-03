@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import AdminLayout, { Btn, PageState } from '../../layouts/AdminLayout';
 import { fetchYearReportData } from '../../lib/supabaseData';
 import { downloadCsv, downloadDoc } from '../../lib/csv';
+import YearReportCharts from '../../components/YearReportCharts';
 
 export default function AdminYearReportExportPage() {
   const [rows, setRows] = useState<any[]>([]);
@@ -159,6 +160,8 @@ export default function AdminYearReportExportPage() {
             <article className="kpi"><p className="kpi-label">Số câu hỏi</p><p className="kpi-value">{summary.totalQuestions}</p></article>
             <article className="kpi"><p className="kpi-label">Đã chấm</p><p className="kpi-value">{summary.gradedCount}</p></article>
           </section>
+
+          <YearReportCharts rows={rows} />
 
           <section className="card">
             <h2 className="section-title">Chi tiết báo cáo</h2>
