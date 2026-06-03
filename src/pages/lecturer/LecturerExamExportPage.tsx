@@ -45,6 +45,7 @@ export default function LecturerExamExportPage() {
         </div>
         <div className="toolbar">
           <Link className="btn btn-secondary" to={exam ? `/lecturer/exams/${exam.id}/preview` : '/lecturer/exams'}>Quay lại</Link>
+          {exam ? <Link className="btn btn-secondary" to={`/lecturer/exams/${exam.id}/edit`}>Sửa đề thi</Link> : null}
         </div>
       </header>
 
@@ -67,6 +68,33 @@ export default function LecturerExamExportPage() {
                 <label>Môn học</label>
                 <input className="input" value={`${exam.subjectCode} - ${exam.subjectName}`} readOnly />
               </div>
+              <div className="field">
+                <label>Trạng thái</label>
+                <input className="input" value={exam.status || '-'} readOnly />
+              </div>
+            </div>
+
+            <div className="table-wrap mt-16">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Thứ tự</th>
+                    <th>Nội dung</th>
+                    <th>Loại</th>
+                    <th>Đáp án / rubric</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(exam.questions || []).map((question: any) => (
+                    <tr key={question.id}>
+                      <td>{question.order}</td>
+                      <td>{question.content}</td>
+                      <td>{question.questionType === 'TRAC_NGHIEM' ? 'Trắc nghiệm' : 'Tự luận'}</td>
+                      <td>{question.questionType === 'TRAC_NGHIEM' ? (question.correctAnswer || '-') : (question.rubric || '-')}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
 
             <div className="actions">

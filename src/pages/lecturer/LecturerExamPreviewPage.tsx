@@ -45,6 +45,7 @@ export default function LecturerExamPreviewPage() {
         </div>
         <div className="toolbar">
           <Link className="btn btn-secondary" to="/lecturer/exams">Quay lại</Link>
+          {exam ? <Link className="btn btn-secondary" to={`/lecturer/exams/${exam.id}/edit`}>Sửa đề thi</Link> : null}
           {exam ? <Link className="btn btn-primary" to={`/lecturer/exams/${exam.id}/export`}>In/PDF</Link> : null}
         </div>
       </header>
@@ -63,14 +64,30 @@ export default function LecturerExamPreviewPage() {
             <article className="kpi"><p className="kpi-label">Mã đề</p><p className="kpi-value">{exam.id}</p></article>
             <article className="kpi"><p className="kpi-label">Thời lượng</p><p className="kpi-value">{exam.durationMinutes} phút</p></article>
             <article className="kpi"><p className="kpi-label">Số câu</p><p className="kpi-value">{exam.questionCount}</p></article>
+            <article className="kpi"><p className="kpi-label">Trạng thái</p><p className="kpi-value" style={{ fontSize: 18 }}>{exam.status}</p></article>
           </section>
 
           <section className="card">
             <h2 className="section-title">Danh sách câu hỏi mẫu</h2>
-            <ol style={{ paddingLeft: 20, margin: 0, display: 'grid', gap: 12 }}>
+            <ol style={{ paddingLeft: 20, margin: 0, display: 'grid', gap: 16 }}>
               {(exam.questions || []).map((question: any) => (
                 <li key={question.id}>
                   <strong>Câu {question.order}:</strong> {question.content}
+                  <div style={{ marginTop: 6, color: '#4b5563', fontSize: 14 }}>
+                    Loại: {question.questionType === 'TRAC_NGHIEM' ? 'Trắc nghiệm' : 'Tự luận'} · Điểm tối đa: {question.maxScore}
+                  </div>
+                  {question.questionType === 'TRAC_NGHIEM' ? (
+                    <>
+                      <ul style={{ margin: '8px 0 0', paddingLeft: 18 }}>
+                        {(question.choices || []).map((choice: any) => (
+                          <li key={choice.key}>{choice.key}. {choice.text}</li>
+                        ))}
+                      </ul>
+                      <div style={{ marginTop: 6 }}><strong>Đáp án đúng:</strong> {question.correctAnswer || '-'}</div>
+                    </>
+                  ) : (
+                    <div style={{ marginTop: 6 }}><strong>Rubric:</strong> {question.rubric || question.guide || '-'}</div>
+                  )}
                 </li>
               ))}
             </ol>

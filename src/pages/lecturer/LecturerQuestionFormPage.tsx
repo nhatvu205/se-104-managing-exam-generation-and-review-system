@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import RoleLayout from '../../components/RoleLayout';
 import { Btn, PageState } from '../../layouts/AdminLayout';
 import { downloadCsv, parseCsv, readCsvFile } from '../../lib/csv';
-import { createSubject, fetchDifficultyLevels, fetchSubjects, saveLecturerQuestion, saveSubject } from '../../lib/supabaseData';
+import { createSubject, fetchDifficultyLevels, fetchSubjects, QUESTION_KIND_OPTIONS, saveLecturerQuestion, saveSubject } from '../../lib/supabaseData';
 import { withLecturerActive } from './lecturerNav';
 import { useLecturerIdentity } from './useLecturerIdentity';
 
@@ -17,8 +17,17 @@ export default function LecturerQuestionFormPage() {
   const [customSubjectName, setCustomSubjectName] = useState('');
   const [customSubjectCredits, setCustomSubjectCredits] = useState(3);
   const [difficulty, setDifficulty] = useState('');
+  const [questionType, setQuestionType] = useState<'TRAC_NGHIEM' | 'TU_LUAN'>('TU_LUAN');
   const [content, setContent] = useState('');
   const [answerGuide, setAnswerGuide] = useState('');
+  const [choices, setChoices] = useState([
+    { key: 'A', text: '' },
+    { key: 'B', text: '' },
+    { key: 'C', text: '' },
+    { key: 'D', text: '' },
+  ]);
+  const [correctAnswer, setCorrectAnswer] = useState('A');
+  const [rubric, setRubric] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [submitError, setSubmitError] = useState('');
@@ -72,12 +81,24 @@ export default function LecturerQuestionFormPage() {
           levelCode: difficulty,
           content,
           answer: answerGuide,
+          questionType,
+          choices,
+          correctAnswer,
+          rubric,
         });
       })
       .then(() => {
         setSaved(true);
         setContent('');
         setAnswerGuide('');
+        setRubric('');
+        setChoices([
+          { key: 'A', text: '' },
+          { key: 'B', text: '' },
+          { key: 'C', text: '' },
+          { key: 'D', text: '' },
+        ]);
+        setCorrectAnswer('A');
         if (isCustomSubject) {
           setIsCustomSubject(false);
           setCustomSubjectCode('');
@@ -109,12 +130,21 @@ export default function LecturerQuestionFormPage() {
     const text = await readCsvFile(file);
     const { data } = parseCsv(text);
     for (const row of data) {
-      if (!row.subject_code || !row.level_code || !row.content || !row.answer) continue;
+      if (!row.subject_code || !row.level_code || !row.content) continue;
       await saveLecturerQuestion({
         subjectCode: row.subject_code,
         levelCode: row.level_code,
         content: row.content,
         answer: row.answer,
+        questionType: String(row.question_type || '').trim().toUpperCase() === 'TRAC_NGHIEM' ? 'TRAC_NGHIEM' : 'TU_LUAN',
+        choices: [
+          { key: 'A', text: row.option_a || '' },
+          { key: 'B', text: row.option_b || '' },
+          { key: 'C', text: row.option_c || '' },
+          { key: 'D', text: row.option_d || '' },
+        ].filter((item) => item.text),
+        correctAnswer: row.correct_answer || '',
+        rubric: row.rubric || row.answer || '',
         status: row.status || 'Đang dùng',
       });
     }
@@ -159,7 +189,7 @@ export default function LecturerQuestionFormPage() {
             onClick={() =>
               downloadCsv(
                 'template-questions.csv',
-                'subject_code,level_code,content,answer,status\nSE104,NB,"Nội dung câu hỏi có dấu tiếng Việt","Đáp án / hướng dẫn chấm","Đang dùng"\n',
+                'subject_code,level_code,question_type,content,option_a,option_b,option_c,option_d,correct_answer,rubric,answer,status\nSE104,NB,TRAC_NGHIEM,"Câu hỏi trắc nghiệm có dấu tiếng Việt","Lựa chọn A","Lựa chọn B","Lựa chọn C","Lựa chọn D",A,,"A","Đang dùng"\nSE104,VD,TU_LUAN,"Câu hỏi tự luận có dấu tiếng Việt",,,,,,"Rubric chấm chi tiết","Rubric chấm chi tiết","Đang dùng"\n',
               )
             }
           >
@@ -222,6 +252,14 @@ export default function LecturerQuestionFormPage() {
                   ))}
                 </select>
               </div>
+              <div className="field">
+                <label>Loại câu hỏi</label>
+                <select className="select" value={questionType} onChange={(e) => setQuestionType(e.target.value as 'TRAC_NGHIEM' | 'TU_LUAN')} required>
+                  {QUESTION_KIND_OPTIONS.map((item) => (
+                    <option key={item.value} value={item.value}>{item.label}</option>
+                  ))}
+                </select>
+              </div>
             </div>
 
             {isCustomSubject ? (
@@ -246,10 +284,39 @@ export default function LecturerQuestionFormPage() {
                 <label>Nội dung câu hỏi</label>
                 <textarea className="textarea" value={content} onChange={(e) => setContent(e.target.value)} required />
               </div>
-              <div className="field">
-                <label>Đáp án / rubric</label>
-                <textarea className="textarea" value={answerGuide} onChange={(e) => setAnswerGuide(e.target.value)} required />
-              </div>
+              {questionType === 'TRAC_NGHIEM' ? (
+                <div className="field">
+                  <label>Lựa chọn & đáp án đúng</label>
+                  <div className="form-grid" style={{ gap: 10 }}>
+                    {choices.map((choice, index) => (
+                      <div key={choice.key} style={{ display: 'grid', gridTemplateColumns: '72px 1fr', gap: 10, alignItems: 'center' }}>
+                        <label style={{ margin: 0 }}>Đáp án {choice.key}</label>
+                        <input
+                          className="input"
+                          value={choice.text}
+                          onChange={(e) =>
+                            setChoices((prev) => prev.map((item, idx) => (idx === index ? { ...item, text: e.target.value } : item)))
+                          }
+                          required={index < 2}
+                        />
+                      </div>
+                    ))}
+                    <div className="field">
+                      <label>Đáp án đúng</label>
+                      <select className="select" value={correctAnswer} onChange={(e) => setCorrectAnswer(e.target.value)} required>
+                        {choices.filter((item) => item.text.trim()).map((item) => (
+                          <option key={item.key} value={item.key}>{item.key}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="field">
+                  <label>Rubric chấm tự luận</label>
+                  <textarea className="textarea" value={rubric} onChange={(e) => setRubric(e.target.value)} required />
+                </div>
+              )}
             </div>
 
             {saved ? <div className="notice notice-success mt-16">Đã lưu câu hỏi thành công.</div> : null}

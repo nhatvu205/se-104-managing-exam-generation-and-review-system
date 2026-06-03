@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import RoleLayout from '../../components/RoleLayout';
 import { Btn, PageState } from '../../layouts/AdminLayout';
-import { fetchLecturerExamList } from '../../lib/supabaseData';
+import { deleteLecturerExam, EXAM_STATUS_OPTIONS, fetchLecturerExamList, updateLecturerExamStatus } from '../../lib/supabaseData';
 import { withLecturerActive } from './lecturerNav';
 import { useLecturerIdentity } from './useLecturerIdentity';
 
@@ -13,6 +13,7 @@ export default function LecturerExamListPage() {
   const [status, setStatus] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [savingId, setSavingId] = useState('');
 
   const load = async () => {
     setLoading(true);
@@ -39,6 +40,31 @@ export default function LecturerExamListPage() {
       return matchQuery && matchStatus;
     });
   }, [query, rows, status]);
+
+  const handleDelete = async (examId: string) => {
+    if (!window.confirm(`Bạn có chắc muốn xóa đề thi ${examId}?`)) return;
+    setSavingId(examId);
+    try {
+      await deleteLecturerExam(examId);
+      await load();
+    } catch (e: any) {
+      setError(e.message || 'Không xóa được đề thi');
+    } finally {
+      setSavingId('');
+    }
+  };
+
+  const handleStatusChange = async (examId: string, nextStatus: string) => {
+    setSavingId(examId);
+    try {
+      await updateLecturerExamStatus(examId, nextStatus);
+      await load();
+    } catch (e: any) {
+      setError(e.message || 'Không cập nhật được trạng thái đề thi');
+    } finally {
+      setSavingId('');
+    }
+  };
 
   return (
     <RoleLayout
@@ -71,8 +97,9 @@ export default function LecturerExamListPage() {
                 <label>Trạng thái</label>
                 <select className="select" value={status} onChange={(e) => setStatus(e.target.value)}>
                   <option value="">Tất cả</option>
-                  <option value="Đang dùng">Đang dùng</option>
-                  <option value="Ngừng dùng">Ngừng dùng</option>
+                  {EXAM_STATUS_OPTIONS.map((item) => (
+                    <option key={item} value={item}>{item}</option>
+                  ))}
                 </select>
               </div>
             </div>
@@ -108,7 +135,22 @@ export default function LecturerExamListPage() {
                       <td data-label="Tác vụ">
                         <div className="toolbar">
                           <Link className="btn btn-secondary" to={`/lecturer/exams/${exam.id}/preview`}>Xem</Link>
+                          <Link className="btn btn-secondary" to={`/lecturer/exams/${exam.id}/edit`}>Sửa</Link>
                           <Link className="btn btn-tertiary" to={`/lecturer/exams/${exam.id}/export`}>In/PDF</Link>
+                          <select
+                            className="select"
+                            value={exam.status}
+                            onChange={(e) => handleStatusChange(exam.id, e.target.value)}
+                            disabled={savingId === exam.id}
+                            style={{ minWidth: 132 }}
+                          >
+                            {EXAM_STATUS_OPTIONS.map((item) => (
+                              <option key={item} value={item}>{item}</option>
+                            ))}
+                          </select>
+                          <button type="button" className="btn btn-tertiary" style={{ color: '#dc2626' }} onClick={() => handleDelete(exam.id)} disabled={savingId === exam.id}>
+                            {savingId === exam.id ? 'Đang xử lý...' : 'Xóa'}
+                          </button>
                         </div>
                       </td>
                     </tr>

@@ -176,6 +176,7 @@ export default function App() {
         <Route path="/lecturer/questions/create" element={requireAuth(<LecturerQuestionFormPage />, 'lecturer')} />
         <Route path="/lecturer/exams" element={requireAuth(<LecturerExamListPage />, 'lecturer')} />
         <Route path="/lecturer/exams/create" element={requireAuth(<LecturerExamBuilderPage />, 'lecturer')} />
+        <Route path="/lecturer/exams/:id/edit" element={requireAuth(<LecturerExamBuilderPage />, 'lecturer')} />
         <Route path="/lecturer/exams/:id/preview" element={requireAuth(<LecturerExamPreviewPage />, 'lecturer')} />
         <Route path="/lecturer/exams/:id/export" element={requireAuth(<LecturerExamExportPage />, 'lecturer')} />
         <Route path="/lecturer/search" element={requireAuth(<LecturerSearchExamPage />, 'lecturer')} />

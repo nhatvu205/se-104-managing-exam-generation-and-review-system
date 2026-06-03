@@ -11,6 +11,13 @@ type QuestionScore = {
   detailId: string;
   label: string;
   content: string;
+  questionType: 'TRAC_NGHIEM' | 'TU_LUAN';
+  choices: Array<{ key: string; text: string }>;
+  correctAnswer: string;
+  rubric: string;
+  studentAnswer: string;
+  autoScore: number | null;
+  autoGraded: boolean;
   max: number;
   score: number;
   feedback: string;
@@ -43,6 +50,13 @@ export default function LecturerGradingDetailPage() {
           feedback: item.feedback || '',
           detailId: item.detailId,
           content: item.content || '',
+          questionType: item.questionType || 'TU_LUAN',
+          choices: item.choices || [],
+          correctAnswer: item.correctAnswer || '',
+          rubric: item.rubric || '',
+          studentAnswer: item.studentAnswer || '',
+          autoScore: item.autoScore ?? null,
+          autoGraded: !!item.autoGraded,
         })),
       );
     } catch (e: any) {
@@ -73,11 +87,17 @@ export default function LecturerGradingDetailPage() {
         submissionId: id,
         rows: rows.map((row) => ({
           detailId: row.detailId,
+          questionId: row.id,
+          maxScore: row.max,
           score: Number(row.score || 0),
           feedback: row.feedback || '',
+          questionType: row.questionType,
+          studentAnswer: row.studentAnswer || '',
+          correctAnswer: row.correctAnswer || '',
         })),
       });
       setSaved(true);
+      await load();
     } catch (e: any) {
       setSubmitError(e.message || 'Không lưu được kết quả chấm');
     } finally {
@@ -126,6 +146,8 @@ export default function LecturerGradingDetailPage() {
                   <tr>
                     <th>Câu</th>
                     <th>Nội dung</th>
+                    <th>Bài làm</th>
+                    <th>Đáp án / rubric</th>
                     <th>Điểm tối đa</th>
                     <th>Điểm đạt</th>
                     <th>Nhận xét</th>
@@ -135,7 +157,27 @@ export default function LecturerGradingDetailPage() {
                   {rows.map((row) => (
                     <tr key={row.detailId}>
                       <td data-label="Câu">{row.label}</td>
-                      <td data-label="Nội dung">{row.content || row.id}</td>
+                      <td data-label="Nội dung">
+                        <div>{row.content || row.id}</div>
+                        <div style={{ color: '#6b7280', fontSize: 12, marginTop: 4 }}>
+                          {row.questionType === 'TRAC_NGHIEM' ? 'Trắc nghiệm' : 'Tự luận'}
+                        </div>
+                        {row.questionType === 'TRAC_NGHIEM' ? (
+                          <ul style={{ margin: '8px 0 0', paddingLeft: 18 }}>
+                            {row.choices.map((choice) => (
+                              <li key={choice.key}>{choice.key}. {choice.text}</li>
+                            ))}
+                          </ul>
+                        ) : null}
+                      </td>
+                      <td data-label="Bài làm">{row.studentAnswer || '-'}</td>
+                      <td data-label="Đáp án / rubric">
+                        {row.questionType === 'TRAC_NGHIEM' ? (
+                          <span>Đáp án đúng: <strong>{row.correctAnswer || '-'}</strong></span>
+                        ) : (
+                          <span>{row.rubric || '-'}</span>
+                        )}
+                      </td>
                       <td data-label="Điểm tối đa">{row.max}</td>
                       <td data-label="Điểm đạt">
                         <input
@@ -144,9 +186,11 @@ export default function LecturerGradingDetailPage() {
                           min={0}
                           max={row.max}
                           step={0.25}
-                          value={row.score}
+                          value={row.questionType === 'TRAC_NGHIEM' ? row.autoScore ?? row.score : row.score}
                           onChange={(e) => updateRow(row.detailId, { score: Number(e.target.value) })}
+                          disabled={row.questionType === 'TRAC_NGHIEM'}
                         />
+                        {row.questionType === 'TRAC_NGHIEM' ? <div style={{ fontSize: 12, color: '#6b7280', marginTop: 6 }}>Tự chấm theo đáp án đúng</div> : null}
                       </td>
                       <td data-label="Nhận xét">
                         <input className="input" value={row.feedback} onChange={(e) => updateRow(row.detailId, { feedback: e.target.value })} />

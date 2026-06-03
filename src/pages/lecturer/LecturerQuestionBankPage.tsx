@@ -117,6 +117,7 @@ export default function LecturerQuestionBankPage() {
                     <th>Nội dung</th>
                     <th>Môn học</th>
                     <th>Giảng viên</th>
+                    <th>Loại</th>
                     <th>Độ khó</th>
                     <th>Trạng thái</th>
                     <th>Cập nhật</th>
@@ -129,6 +130,7 @@ export default function LecturerQuestionBankPage() {
                       <td data-label="Nội dung">{item.content}</td>
                       <td data-label="Môn học">{item.subjectCode}</td>
                       <td data-label="Giảng viên">{item.authorName || item.authorId || '-'}</td>
+                      <td data-label="Loại">{item.questionType === 'TRAC_NGHIEM' ? 'Trắc nghiệm' : 'Tự luận'}</td>
                       <td data-label="Độ khó">{item.difficulty || '-'}</td>
                       <td data-label="Trạng thái">
                         <span className={`badge ${String(item.status || '').toLowerCase().includes('đang') ? 'badge-success' : 'badge-warning'}`}>{item.status || '-'}</span>
