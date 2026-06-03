@@ -106,8 +106,10 @@ export default function SubjectListPage({ onNavigate }) {
         open={!!deleteTarget}
         title="Xóa môn học"
         message={`Bạn có chắc muốn xóa môn học ${deleteTarget?.code || ''}?`}
-        onCancel={() => setDeleteTarget(null)}
-        onConfirm={handleDelete}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={() => {
+          void handleDelete();
+        }}
         confirmLabel="Xóa"
       />
     </AdminLayout>

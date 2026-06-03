@@ -21,6 +21,8 @@ import LecturerGradingSummaryPage from './pages/lecturer/LecturerGradingSummaryP
 import LecturerYearReportPage from './pages/lecturer/LecturerYearReportPage';
 import LecturerQuestionBankPage from './pages/lecturer/LecturerQuestionBankPage';
 import LecturerQuestionFormPage from './pages/lecturer/LecturerQuestionFormPage';
+import LecturerSubjectListPage from './pages/lecturer/LecturerSubjectListPage';
+import LecturerSubjectFormPage from './pages/lecturer/LecturerSubjectFormPage';
 import LecturerExamListPage from './pages/lecturer/LecturerExamListPage';
 import LecturerExamBuilderPage from './pages/lecturer/LecturerExamBuilderPage';
 import LecturerExamPreviewPage from './pages/lecturer/LecturerExamPreviewPage';
@@ -29,7 +31,7 @@ import LecturerSearchExamPage from './pages/lecturer/LecturerSearchExamPage';
 import LecturerGradingPage from './pages/lecturer/LecturerGradingPage';
 import LecturerGradingDetailPage from './pages/lecturer/LecturerGradingDetailPage';
 import { supabase } from './lib/supabaseClient';
-import { fetchCurrentUserRole, type AppRole } from './lib/supabaseData';
+import { fetchCurrentUserRole, linkCurrentAuthUser, type AppRole } from './lib/supabaseData';
 import LogoutPage from './pages/shared/LogoutPage';
 
 function RouteAccessibilitySupport() {
@@ -95,6 +97,7 @@ export default function App() {
       }
 
       try {
+        await linkCurrentAuthUser();
         const detectedRole = await fetchCurrentUserRole(session.user.id, session.user.email);
         if (!active) return;
         setIsAuthenticated(true);
@@ -170,6 +173,8 @@ export default function App() {
         <Route path="/lecturer/grading-summary" element={requireAuth(<LecturerGradingSummaryPage />, 'lecturer')} />
         <Route path="/lecturer" element={<Navigate to="/lecturer/year-report" replace />} />
         <Route path="/lecturer/year-report" element={requireAuth(<LecturerYearReportPage />, 'lecturer')} />
+        <Route path="/lecturer/subjects" element={requireAuth(<LecturerSubjectListPage />, 'lecturer')} />
+        <Route path="/lecturer/subjects/form" element={requireAuth(<LecturerSubjectFormPage />, 'lecturer')} />
         <Route path="/lecturer/questions" element={requireAuth(<LecturerQuestionBankPage />, 'lecturer')} />
         <Route path="/lecturer/questions/create" element={requireAuth(<LecturerQuestionFormPage />, 'lecturer')} />
         <Route path="/lecturer/questions/:id/edit" element={requireAuth(<LecturerQuestionFormPage />, 'lecturer')} />

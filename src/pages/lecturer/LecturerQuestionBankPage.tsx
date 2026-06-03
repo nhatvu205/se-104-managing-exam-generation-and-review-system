@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import RoleLayout from '../../components/RoleLayout';
 import { Btn, PageState } from '../../layouts/AdminLayout';
-import { fetchLecturerQuestionBank } from '../../lib/supabaseData';
+import { deleteLecturerQuestion, fetchLecturerQuestionBank } from '../../lib/supabaseData';
 import { withLecturerActive } from './lecturerNav';
 import { useLecturerIdentity } from './useLecturerIdentity';
 
@@ -14,6 +14,7 @@ export default function LecturerQuestionBankPage() {
   const [author, setAuthor] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [deletingId, setDeletingId] = useState('');
 
   const load = async () => {
     setLoading(true);
@@ -31,6 +32,19 @@ export default function LecturerQuestionBankPage() {
   useEffect(() => {
     load();
   }, []);
+
+  const handleDelete = async (item: any) => {
+    if (!window.confirm(`Bạn có chắc muốn xóa câu hỏi ${item.code}?`)) return;
+    setDeletingId(item.id);
+    try {
+      await deleteLecturerQuestion(item.id);
+      await load();
+    } catch (e: any) {
+      setError(e.message || 'Không xóa được câu hỏi');
+    } finally {
+      setDeletingId('');
+    }
+  };
 
   const subjects = useMemo(() => {
     return Array.from(new Set(rows.map((q) => `${q.subjectCode}|${q.subjectName}`))).map((item) => {
@@ -139,7 +153,18 @@ export default function LecturerQuestionBankPage() {
                       <td data-label="Cập nhật">{item.updatedAt}</td>
                       <td data-label="Tác vụ">
                         {item.authorId === lecturer.userId ? (
-                          <Link className="btn btn-secondary" to={`/lecturer/questions/${item.id}/edit`}>Sửa</Link>
+                          <div className="toolbar">
+                            <Link className="btn btn-secondary" to={`/lecturer/questions/${item.id}/edit`}>Sửa</Link>
+                            <button
+                              type="button"
+                              className="btn btn-tertiary"
+                              style={{ color: '#dc2626' }}
+                              onClick={() => void handleDelete(item)}
+                              disabled={deletingId === item.id}
+                            >
+                              {deletingId === item.id ? 'Đang xóa...' : 'Xóa'}
+                            </button>
+                          </div>
                         ) : (
                           <span style={{ color: '#9ca3af', fontSize: 13 }}>Chỉ người tạo mới sửa</span>
                         )}

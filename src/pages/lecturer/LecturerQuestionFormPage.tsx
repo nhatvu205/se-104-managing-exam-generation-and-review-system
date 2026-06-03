@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import RoleLayout from '../../components/RoleLayout';
 import { Btn, PageState } from '../../layouts/AdminLayout';
 import { downloadCsv, parseCsv, readCsvFile } from '../../lib/csv';
-import { createSubject, fetchDifficultyLevels, fetchLecturerQuestionById, fetchSubjects, QUESTION_KIND_OPTIONS, saveLecturerQuestion, saveSubject } from '../../lib/supabaseData';
+import { fetchDifficultyLevels, fetchLecturerQuestionById, fetchSubjects, QUESTION_KIND_OPTIONS, saveLecturerQuestion } from '../../lib/supabaseData';
 import { withLecturerActive } from './lecturerNav';
 import { useLecturerIdentity } from './useLecturerIdentity';
 
@@ -15,10 +15,6 @@ export default function LecturerQuestionFormPage() {
   const [subjects, setSubjects] = useState<any[]>([]);
   const [levels, setLevels] = useState<any[]>([]);
   const [subjectCode, setSubjectCode] = useState('');
-  const [isCustomSubject, setIsCustomSubject] = useState(false);
-  const [customSubjectCode, setCustomSubjectCode] = useState('');
-  const [customSubjectName, setCustomSubjectName] = useState('');
-  const [customSubjectCredits, setCustomSubjectCredits] = useState(3);
   const [difficulty, setDifficulty] = useState('');
   const [questionType, setQuestionType] = useState<'TRAC_NGHIEM' | 'TU_LUAN'>('TU_LUAN');
   const [content, setContent] = useState('');
@@ -70,7 +66,6 @@ export default function LecturerQuestionFormPage() {
         );
         setCorrectAnswer(currentQuestion.correctAnswer || 'A');
       } else if (subjectData[0]?.code) setSubjectCode(subjectData[0].code);
-      if (!subjectData.length) setIsCustomSubject(true);
       if (!currentQuestion && levelData[0]?.code) setDifficulty(levelData[0].code);
     } catch (e: any) {
       setError(e.message || 'Không tải được dữ liệu biểu mẫu');
@@ -85,27 +80,14 @@ export default function LecturerQuestionFormPage() {
 
   const onSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (isCustomSubject && (!customSubjectCode.trim() || !customSubjectName.trim())) {
-      setSubmitError('Vui lòng nhập đầy đủ mã môn và tên môn khi thêm môn học mới.');
-      return;
-    }
     setSaving(true);
     setSaved(false);
     setSubmitError('');
     Promise.resolve()
       .then(async () => {
-        let targetSubjectCode = subjectCode;
-        if (isCustomSubject) {
-          await createSubject({
-            code: customSubjectCode.trim(),
-            name: customSubjectName.trim(),
-            credits: customSubjectCredits,
-          });
-          targetSubjectCode = customSubjectCode.trim();
-        }
         await saveLecturerQuestion({
           id,
-          subjectCode: targetSubjectCode,
+          subjectCode,
           levelCode: difficulty,
           content,
           questionType,
@@ -129,31 +111,9 @@ export default function LecturerQuestionFormPage() {
           { key: 'D', text: '' },
         ]);
         setCorrectAnswer('A');
-        if (isCustomSubject) {
-          setIsCustomSubject(false);
-          setCustomSubjectCode('');
-          setCustomSubjectName('');
-          void load();
-        }
       })
       .catch((e: any) => setSubmitError(e.message || 'Không lưu được câu hỏi'))
       .finally(() => setSaving(false));
-  };
-
-  const importSubjects = async (file: File) => {
-    const text = await readCsvFile(file);
-    const { data } = parseCsv(text);
-    for (const row of data) {
-      if (!row.code || !row.name) continue;
-      await saveSubject({
-        code: row.code,
-        name: row.name,
-        credits: Number(row.credits || 3),
-        description: row.description || '',
-      });
-    }
-    await load();
-    setImportMessage(`Đã import ${data.length} môn học từ CSV.`);
   };
 
   const importQuestions = async (file: File) => {
@@ -225,18 +185,6 @@ export default function LecturerQuestionFormPage() {
           >
             Tải template câu hỏi
           </button>
-          <button
-            type="button"
-            className="btn btn-tertiary"
-            onClick={() =>
-              downloadCsv(
-                'template-subjects.csv',
-                'code,name,credits,description\nSE500,"Chuyên đề kiểm thử nâng cao",3,"Mô tả môn học có dấu tiếng Việt"\n',
-              )
-            }
-          >
-            Tải template môn học
-          </button>
         </div>
       </header>
 
@@ -250,27 +198,16 @@ export default function LecturerQuestionFormPage() {
             <div className="form-grid two">
               <div className="field">
                 <label>Môn học</label>
-                <select
-                  className="select"
-                  value={isCustomSubject || !subjects.length ? '__custom__' : subjectCode}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    if (value === '__custom__') {
-                      setIsCustomSubject(true);
-                    } else {
-                      setIsCustomSubject(false);
-                      setSubjectCode(value);
-                    }
-                  }}
-                  required
-                >
+                <select className="select" value={subjectCode} onChange={(e) => setSubjectCode(e.target.value)} required>
                   {subjects.map((subject) => (
                     <option key={subject.code} value={subject.code}>
                       {subject.code} - {subject.name}
                     </option>
                   ))}
-                  <option value="__custom__">+ Thêm môn học mới</option>
                 </select>
+                <p className="field-help">
+                  Nếu chưa có môn học phù hợp, hãy vào <Link to="/lecturer/subjects">Danh sách môn học</Link> để thêm mới trước.
+                </p>
               </div>
               <div className="field">
                 <label>Độ khó</label>
@@ -291,23 +228,6 @@ export default function LecturerQuestionFormPage() {
                 </select>
               </div>
             </div>
-
-            {isCustomSubject ? (
-              <div className="form-grid two mt-16">
-                <div className="field">
-                  <label>Mã môn học mới</label>
-                  <input className="input" value={customSubjectCode} onChange={(e) => setCustomSubjectCode(e.target.value)} placeholder="VD: SE500" required />
-                </div>
-                <div className="field">
-                  <label>Tên môn học mới</label>
-                  <input className="input" value={customSubjectName} onChange={(e) => setCustomSubjectName(e.target.value)} placeholder="VD: Chuyên đề kiểm thử nâng cao" required />
-                </div>
-                <div className="field">
-                  <label>Số tín chỉ</label>
-                  <input className="input" type="number" min={1} value={customSubjectCredits} onChange={(e) => setCustomSubjectCredits(Number(e.target.value))} />
-                </div>
-              </div>
-            ) : null}
 
             <div className="form-grid mt-16">
               <div className="field">
@@ -360,18 +280,14 @@ export default function LecturerQuestionFormPage() {
           </form>
 
           <section className="card">
-            <h2 className="section-title">Import CSV hàng loạt</h2>
-            <div className="form-grid two">
-              <div className="field">
-                <label>Import môn học</label>
-                <input className="input" type="file" accept=".csv,text/csv" onChange={onUpload(importSubjects)} />
-              </div>
+            <h2 className="section-title">Import CSV câu hỏi</h2>
+            <div className="form-grid">
               <div className="field">
                 <label>Import câu hỏi</label>
                 <input className="input" type="file" accept=".csv,text/csv" onChange={onUpload(importQuestions)} />
               </div>
             </div>
-            <p className="field-help">CSV import phù hợp khi cần tạo nhiều môn học hoặc câu hỏi một lần theo template tải từ web.</p>
+            <p className="field-help">CSV import phù hợp khi cần tạo nhiều câu hỏi một lần theo template tải từ web.</p>
           </section>
         </>
       )}

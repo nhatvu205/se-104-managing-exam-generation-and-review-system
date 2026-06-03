@@ -12,6 +12,7 @@ export default function LecturerGradingPage() {
   const [rows, setRows] = useState<any[]>([]);
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState('');
+  const [subject, setSubject] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [openingId, setOpeningId] = useState('');
@@ -38,9 +39,17 @@ export default function LecturerGradingPage() {
     return rows.filter((item) => {
       const matchQuery = !q || [item.id, item.submissionCode, item.submissionName, item.examTitle].join(' ').toLowerCase().includes(q);
       const matchStatus = !status || item.status === status;
-      return matchQuery && matchStatus;
+      const matchSubject = !subject || item.subjectCode === subject;
+      return matchQuery && matchStatus && matchSubject;
     });
-  }, [query, rows, status]);
+  }, [query, rows, status, subject]);
+
+  const subjectOptions = useMemo(() => {
+    return Array.from(new Map(rows.map((item) => [item.subjectCode, item.subjectName || item.subjectCode])).entries()).map(([code, name]) => ({
+      code,
+      name,
+    }));
+  }, [rows]);
 
   const stats = useMemo(() => {
     return {
@@ -89,10 +98,19 @@ export default function LecturerGradingPage() {
       ) : (
         <>
           <section className="card">
-            <div className="form-grid two">
+            <div className="form-grid three">
               <div className="field">
                 <label>Tìm kiếm</label>
                 <input className="input" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Mã bài / đề thi" />
+              </div>
+              <div className="field">
+                <label>Môn học</label>
+                <select className="select" value={subject} onChange={(e) => setSubject(e.target.value)}>
+                  <option value="">Tất cả môn học</option>
+                  {subjectOptions.map((item) => (
+                    <option key={item.code} value={item.code}>{item.code} - {item.name}</option>
+                  ))}
+                </select>
               </div>
               <div className="field">
                 <label>Trạng thái</label>

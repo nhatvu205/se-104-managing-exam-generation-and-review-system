@@ -21,6 +21,7 @@ export default function LecturerExamBuilderPage() {
   const [status, setStatus] = useState('Đang dùng');
   const [durationMinutes, setDurationMinutes] = useState(60);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [questionScores, setQuestionScores] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [submitError, setSubmitError] = useState('');
@@ -47,10 +48,14 @@ export default function LecturerExamBuilderPage() {
         setSemesterCode(currentExam.semesterCode || semesterData[0]?.code || '');
         setDurationMinutes(Number(currentExam.durationMinutes || 60));
         setSelectedIds(currentExam.questionIds || []);
+        setQuestionScores(
+          Object.fromEntries((currentExam.questionItems || []).map((item: any) => [item.questionId, String(item.maxScore || 1)])),
+        );
         setStatus(currentExam.status || 'Đang dùng');
       } else {
         if (subjectData[0]?.code) setSubjectCode(subjectData[0].code);
         if (semesterData[0]?.code) setSemesterCode(semesterData[0].code);
+        setQuestionScores({});
       }
     } catch (e: any) {
       setError(e.message || 'Không tải được dữ liệu tạo đề');
@@ -66,7 +71,18 @@ export default function LecturerExamBuilderPage() {
   const availableQuestions = useMemo(() => questionBank.filter((q) => q.subjectCode === subjectCode), [questionBank, subjectCode]);
 
   const onToggleQuestion = (id: string) => {
-    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+    setSelectedIds((prev) => {
+      if (prev.includes(id)) {
+        setQuestionScores((current) => {
+          const next = { ...current };
+          delete next[id];
+          return next;
+        });
+        return prev.filter((x) => x !== id);
+      }
+      setQuestionScores((current) => ({ ...current, [id]: current[id] || '1' }));
+      return [...prev, id];
+    });
   };
 
   const onSubmit = (event: FormEvent<HTMLFormElement>) => {
@@ -80,6 +96,10 @@ export default function LecturerExamBuilderPage() {
         semesterCode,
         durationMinutes,
         questionIds: selectedIds,
+        questionItems: selectedIds.map((questionId) => ({
+          questionId,
+          maxScore: Number(questionScores[questionId] || 0),
+        })),
         status,
         id,
       })
@@ -91,6 +111,7 @@ export default function LecturerExamBuilderPage() {
         }
         setTitle('');
         setSelectedIds([]);
+        setQuestionScores({});
         setStatus('Đang dùng');
       })
       .catch((e: any) => setSubmitError(e.message || 'Không tạo được đề thi'))
@@ -108,6 +129,14 @@ export default function LecturerExamBuilderPage() {
         semesterCode: row.semester_code,
         durationMinutes: Number(row.duration_minutes || 60),
         questionIds: row.question_ids.split(';').map((item) => item.trim()).filter(Boolean),
+        questionItems: row.question_ids
+          .split(';')
+          .map((item) => item.trim())
+          .filter(Boolean)
+          .map((questionId: string, index: number) => ({
+            questionId,
+            maxScore: Number(String(row.question_scores || '').split(';')[index] || 1),
+          })),
         status: row.status || 'Đang dùng',
       });
     }
@@ -150,7 +179,7 @@ export default function LecturerExamBuilderPage() {
             onClick={() =>
               downloadCsv(
                 'template-exams.csv',
-                'title,subject_code,semester_code,duration_minutes,question_ids,status\n"Đề giữa kỳ SE104 có dấu tiếng Việt",SE104,HK1_2026_2027,60,CH00001;CH00002;CH00003,Đang dùng\n',
+                'title,subject_code,semester_code,duration_minutes,question_ids,question_scores,status\n"Đề giữa kỳ SE104 có dấu tiếng Việt",SE104,HK1_2026_2027,60,CH00001;CH00002;CH00003,3;3;4,Đang dùng\n',
               )
             }
           >
@@ -179,7 +208,13 @@ export default function LecturerExamBuilderPage() {
                   onChange={(e) => {
                     const nextSubject = e.target.value;
                     setSubjectCode(nextSubject);
-                    setSelectedIds((prev) => prev.filter((questionId) => questionBank.some((item) => item.id === questionId && item.subjectCode === nextSubject)));
+                    setSelectedIds((prev) => {
+                      const kept = prev.filter((questionId) => questionBank.some((item) => item.id === questionId && item.subjectCode === nextSubject));
+                      setQuestionScores((current) =>
+                        Object.fromEntries(Object.entries(current).filter(([questionId]) => kept.includes(questionId))),
+                      );
+                      return kept;
+                    });
                   }}
                   required
                 >
@@ -238,6 +273,7 @@ export default function LecturerExamBuilderPage() {
                     <th>Nội dung</th>
                     <th>Loại</th>
                     <th>Độ khó</th>
+                    <th>Điểm tối đa</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -250,11 +286,26 @@ export default function LecturerExamBuilderPage() {
                       <td data-label="Nội dung">{question.content}</td>
                       <td data-label="Loại">{question.questionType === 'TRAC_NGHIEM' ? 'Trắc nghiệm' : 'Tự luận'}</td>
                       <td data-label="Độ khó">{question.difficulty || '-'}</td>
+                      <td data-label="Điểm tối đa">
+                        {selectedIds.includes(question.id) ? (
+                          <input
+                            className="input"
+                            type="number"
+                            min={0.25}
+                            step={0.25}
+                            value={questionScores[question.id] || '1'}
+                            onChange={(e) => setQuestionScores((prev) => ({ ...prev, [question.id]: e.target.value }))}
+                            style={{ minWidth: 96 }}
+                          />
+                        ) : (
+                          <span style={{ color: '#9ca3af' }}>Chọn câu để nhập điểm</span>
+                        )}
+                      </td>
                     </tr>
                   ))}
                   {!availableQuestions.length ? (
                     <tr>
-                      <td colSpan={5} style={{ textAlign: 'center', color: '#6b7280' }}>
+                      <td colSpan={6} style={{ textAlign: 'center', color: '#6b7280' }}>
                         Chưa có câu hỏi nào cho môn học đang chọn. Hãy đổi môn học hoặc tạo câu hỏi trước.
                       </td>
                     </tr>
@@ -279,7 +330,7 @@ export default function LecturerExamBuilderPage() {
               <label>File CSV</label>
               <input className="input" type="file" accept=".csv,text/csv" onChange={onUpload} />
             </div>
-            <p className="field-help">Mỗi dòng là 1 đề thi. Cột `question_ids` dùng dấu `;` để ngăn cách danh sách mã câu hỏi.</p>
+            <p className="field-help">Mỗi dòng là 1 đề thi. Cột `question_ids` và `question_scores` dùng dấu `;` để ngăn cách danh sách theo cùng thứ tự.</p>
           </section>
         </>
       )}

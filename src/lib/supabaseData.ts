@@ -27,6 +27,8 @@ const DEFAULT_LEVEL_OPTIONS = [
   { code: 'VDC', name: 'Vận dụng cao' },
 ];
 
+const DEFAULT_FACULTY = 'Khoa Công nghệ phần mềm';
+
 export type AppRole = 'admin' | 'lecturer';
 export type QuestionKind = 'TRAC_NGHIEM' | 'TU_LUAN';
 
@@ -50,7 +52,7 @@ type CurrentUserProfile = {
   userId: string | null;
   fullName: string;
   email: string;
-  department: string;
+  faculty: string;
 };
 
 function getClient() {
@@ -217,7 +219,7 @@ export async function fetchCurrentUserProfile(): Promise<CurrentUserProfile> {
       userId: null,
       fullName: 'Giảng viên',
       email: '',
-      department: 'Chưa cập nhật bộ môn',
+      faculty: 'Chưa cập nhật khoa',
     };
   }
 
@@ -231,8 +233,17 @@ export async function fetchCurrentUserProfile(): Promise<CurrentUserProfile> {
     userId: row ? String(getField(row, ['MaNguoiDung', 'maNguoiDung']) || '') : null,
     fullName: String(getField(row, ['HoTen', 'hoten']) || 'Giảng viên'),
     email: String(getField(row, ['Email', 'email']) || email || ''),
-    department: String(getField(row, ['BoMon', 'bomon', 'DonVi', 'donvi', 'Khoa', 'khoa']) || 'Chưa cập nhật bộ môn'),
+    faculty: String(getField(row, ['Khoa', 'khoa', 'BoMon', 'bomon', 'DonVi', 'donvi']) || 'Chưa cập nhật khoa'),
   };
+}
+
+export async function linkCurrentAuthUser() {
+  const client = getClient();
+  try {
+    await client.rpc('link_current_auth_user');
+  } catch {
+    return;
+  }
 }
 
 async function createAuthUserByEdgeFunction(payload: {
@@ -394,6 +405,7 @@ export async function saveUser(payload: {
     SoDienThoai: payload.phone || null,
     MaVaiTro: payload.roleId,
     TrangThai: payload.status,
+    Khoa: payload.roleId === 'GV' ? DEFAULT_FACULTY : null,
   } as any;
 
   if (payload.id) {
@@ -827,6 +839,7 @@ export async function createSubject(payload: {
     TenMonHoc: payload.name.trim(),
     SoTinChi: Number(payload.credits || 3),
     MoTa: payload.description?.trim() || null,
+    Khoa: DEFAULT_FACULTY,
   };
   try {
     await queryFirst<any[]>(TABLES.subjects, (table) => client.from(table).insert(row).select('MaMonHoc'));
@@ -856,6 +869,7 @@ export async function saveSubject(payload: {
     TenMonHoc: payload.name.trim(),
     SoTinChi: Number(payload.credits || 3),
     MoTa: payload.description?.trim() || null,
+    Khoa: DEFAULT_FACULTY,
   };
 
   try {
@@ -876,6 +890,17 @@ export async function deleteSubject(subjectId: string) {
   const client = getClient();
   try {
     await queryFirst<any[]>(TABLES.subjects, (table) => client.from(table).delete().eq('MaMonHoc', subjectId).select('MaMonHoc'));
+  } catch (error: any) {
+    throw toAppError(error);
+  }
+}
+
+export async function deleteLecturerQuestion(questionId: string) {
+  const client = getClient();
+  try {
+    await queryFirst<any[]>(TABLES.questions, (table) =>
+      client.from(table).delete().eq('MaCauHoi', questionId).select('MaCauHoi'),
+    );
   } catch (error: any) {
     throw toAppError(error);
   }
@@ -987,6 +1012,7 @@ export async function saveLecturerExam(payload: {
   semesterCode: string;
   durationMinutes: number;
   questionIds: string[];
+  questionItems?: Array<{ questionId: string; maxScore: number }>;
   status?: string;
 }) {
   const client = getClient();
@@ -1010,16 +1036,23 @@ export async function saveLecturerExam(payload: {
     GhiChu: payload.title,
   };
 
-  const baseScore = Math.floor(10 / payload.questionIds.length);
-  const remainder = 10 - (baseScore * payload.questionIds.length);
-  const detailRows = payload.questionIds.map((questionId, index) => ({
+  const questionItems = (payload.questionItems?.length
+    ? payload.questionItems
+    : payload.questionIds.map((questionId) => ({ questionId, maxScore: 1 })))
+    .filter((item) => item.questionId);
+
+  const detailRows = questionItems.map((item, index) => ({
     MaChiTietDeThi: `CTDT_${examId}_${index + 1}`,
     MaDeThi: examId,
-    MaCauHoi: questionId,
+    MaCauHoi: item.questionId,
     ThuTu: index + 1,
-    DiemToiDa: baseScore + (index < remainder ? 1 : 0),
+    DiemToiDa: Number(item.maxScore || 0),
     HuongDanCham: '',
   }));
+
+  if (detailRows.some((item) => item.DiemToiDa <= 0)) {
+    throw new Error('Mỗi câu hỏi trong đề thi phải có điểm tối đa lớn hơn 0.');
+  }
 
   try {
     if (payload.id) {
@@ -1047,6 +1080,10 @@ export async function fetchLecturerExamById(examId: string) {
     durationMinutes: exam.durationMinutes,
     status: exam.status,
     questionIds: (exam.questions || []).map((item: any) => item.id),
+    questionItems: (exam.questions || []).map((item: any) => ({
+      questionId: item.id,
+      maxScore: Number(item.maxScore || 1),
+    })),
   };
 }
 
@@ -1120,21 +1157,21 @@ export async function fetchLecturerGradingQueue() {
   const [submissionsRes, examsRes, subjectsRes, userDirectoryRes] = await Promise.all([
     queryFirst<any[]>(TABLES.submissions, (table) => client.from(table).select('*').order('GioNop', { ascending: false }).limit(200)),
     queryFirst<any[]>(TABLES.exams, (table) => client.from(table).select('MaDeThi,GhiChu,MaMonHoc')),
-    queryFirst<any[]>(TABLES.subjects, (table) => client.from(table).select('MaMonHoc,BoMon')),
+    queryFirst<any[]>(TABLES.subjects, (table) => client.from(table).select('MaMonHoc,TenMonHoc,Khoa,BoMon')),
     client.rpc('get_public_user_directory'),
   ]);
 
   const examMap = new Map((examsRes.data || []).map((e: any) => [e.MaDeThi, e.GhiChu || e.MaDeThi]));
   const examSubjectMap = new Map((examsRes.data || []).map((e: any) => [e.MaDeThi, e.MaMonHoc]));
-  const subjectDeptMap = new Map((subjectsRes.data || []).map((s: any) => [s.MaMonHoc, s.BoMon || '']));
+  const subjectDeptMap = new Map((subjectsRes.data || []).map((s: any) => [s.MaMonHoc, s.Khoa || s.BoMon || '']));
   const userMap = new Map((((userDirectoryRes as any)?.data) || []).map((u: any) => [u.MaNguoiDung, u.HoTen || u.MaNguoiDung]));
 
   return (submissionsRes.data || [])
     .filter((row: any) => {
-      if (!profile.department) return currentUserId ? row.MaNguoiCham === currentUserId : true;
+      if (!profile.faculty) return currentUserId ? row.MaNguoiCham === currentUserId : true;
       const subjectCode = examSubjectMap.get(row.MaDeThi);
       const department = subjectDeptMap.get(subjectCode || '');
-      return department === profile.department;
+      return department === profile.faculty;
     })
     .map((row: any) => {
     const statusRaw = String(row.TrangThai || '').toLowerCase();
@@ -1152,6 +1189,12 @@ export async function fetchLecturerGradingQueue() {
       graderName: userMap.get(row.MaNguoiCham) || row.MaNguoiCham || '',
       isMine: !!currentUserId && row.MaNguoiCham === currentUserId,
       isClaimed: !!row.MaNguoiCham,
+      subjectCode: examSubjectMap.get(row.MaDeThi) || '',
+      subjectName: (() => {
+        const subjectCode = examSubjectMap.get(row.MaDeThi) || '';
+        const subjectRow = (subjectsRes.data || []).find((s: any) => s.MaMonHoc === subjectCode);
+        return subjectRow?.TenMonHoc || subjectCode;
+      })(),
     };
   });
 }
@@ -1163,13 +1206,27 @@ export async function claimLecturerGradingSubmission(submissionId: string) {
     throw new Error('Không xác định được giảng viên đăng nhập. Vui lòng đăng nhập lại.');
   }
 
+  const current = await queryFirst<any[]>(TABLES.submissions, (table) =>
+    client.from(table).select('MaBaiThi,MaNguoiCham,TrangThai').eq('MaBaiThi', submissionId).limit(1),
+  );
+  const row = (current.data || [])[0];
+  if (!row) {
+    throw new Error('Không tìm thấy bài thi cần chấm.');
+  }
+  if (row.MaNguoiCham && row.MaNguoiCham !== currentUserId) {
+    throw new Error('Bài thi này đã được giảng viên khác nhận chấm.');
+  }
+  if (row.MaNguoiCham === currentUserId) {
+    return true;
+  }
+
   try {
     const result = await queryFirst<any[]>(TABLES.submissions, (table) =>
       client
         .from(table)
         .update({ MaNguoiCham: currentUserId, TrangThai: 'Đang chấm' })
         .eq('MaBaiThi', submissionId)
-        .or(`MaNguoiCham.is.null,MaNguoiCham.eq.${currentUserId}`)
+        .is('MaNguoiCham', null)
         .select('MaBaiThi,MaNguoiCham,TrangThai'),
     );
 
@@ -1180,13 +1237,6 @@ export async function claimLecturerGradingSubmission(submissionId: string) {
     throw toAppError(error);
   }
 
-  const current = await queryFirst<any[]>(TABLES.submissions, (table) =>
-    client.from(table).select('MaBaiThi,MaNguoiCham,TrangThai').eq('MaBaiThi', submissionId).limit(1),
-  );
-  const row = (current.data || [])[0];
-  if (row?.MaNguoiCham && row.MaNguoiCham !== currentUserId) {
-    throw new Error('Bài thi này đã được giảng viên khác nhận chấm.');
-  }
   throw new Error('Không thể nhận chấm bài thi này.');
 }
 
@@ -1255,12 +1305,22 @@ export async function saveLecturerGradingDetail(payload: {
     CauTraLoi: row.studentAnswer || null,
     DiemTuDong: autoScore,
     ChamTuDong: row.questionType === 'TRAC_NGHIEM',
-  };
+    };
   });
   const total = updates.reduce((sum, row) => sum + Number(row.DiemDat || 0), 0);
 
   try {
-    await queryFirst<any[]>(TABLES.gradingDetails, (table) => client.from(table).upsert(updates, { onConflict: 'MaChiTietCham' }).select('MaChiTietCham'));
+    for (const row of updates) {
+      await queryFirst<any[]>(TABLES.gradingDetails, (table) =>
+        client.from(table).update({
+          DiemDat: row.DiemDat,
+          NhanXet: null,
+          CauTraLoi: row.CauTraLoi,
+          DiemTuDong: row.DiemTuDong,
+          ChamTuDong: row.ChamTuDong,
+        }).eq('MaChiTietCham', row.MaChiTietCham).select('MaChiTietCham'),
+      );
+    }
     await queryFirst<any[]>(TABLES.submissions, (table) =>
       client.from(table).update({ TongDiem: Number(total.toFixed(2)), TrangThai: 'Đã chấm', NgayCham: new Date().toISOString().slice(0, 10) }).eq('MaBaiThi', payload.submissionId).select('MaBaiThi'),
     );

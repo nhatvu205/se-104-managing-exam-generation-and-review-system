@@ -1,4 +1,5 @@
 export const lecturerNavItems = [
+  { label: 'Danh sách môn học', to: '/lecturer/subjects' },
   { label: 'Tạo câu hỏi', to: '/lecturer/questions/create' },
   { label: 'Ngân hàng câu hỏi', to: '/lecturer/questions' },
   { label: 'Tạo đề thi', to: '/lecturer/exams/create' },
