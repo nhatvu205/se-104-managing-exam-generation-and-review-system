@@ -671,12 +671,27 @@ export async function fetchYearReportData(filters?: {
     };
   });
 
+  // Cascade filter options: each level narrows based on selected filters above it
+  const examsForYear = filters?.academicYear
+    ? exams.filter((row) => row.academicYear === filters.academicYear)
+    : exams;
+  const examsForSemester = filters?.semesterCode
+    ? examsForYear.filter((row) => row.semesterCode === filters.semesterCode)
+    : examsForYear;
+  const examsForSubject = filters?.subjectCode
+    ? examsForSemester.filter((row) => row.subjectCode === filters.subjectCode)
+    : examsForSemester;
+
   const filterOptions = {
     academicYears: Array.from(new Set(exams.map((row) => row.academicYear).filter(Boolean))),
-    semesters: Array.from(new Map(exams.map((row) => [row.semesterCode, { code: row.semesterCode, name: row.semesterName, academicYear: row.academicYear }])).values()),
-    subjects: Array.from(new Map(exams.map((row) => [row.subjectCode, { code: row.subjectCode, name: row.subjectName }])).values()),
-    exams: exams.map((row) => ({ id: row.id, title: row.title })),
-    classes: Array.from(new Map(classRows.map((row) => [row.id, { id: row.id, subjectCode: row.subjectCode, semesterCode: row.semesterCode }])).values()),
+    semesters: Array.from(new Map(examsForYear.map((row) => [row.semesterCode, { code: row.semesterCode, name: row.semesterName, academicYear: row.academicYear }])).values()),
+    subjects: Array.from(new Map(examsForSemester.map((row) => [row.subjectCode, { code: row.subjectCode, name: row.subjectName }])).values()),
+    exams: examsForSubject.map((row) => ({ id: row.id, title: row.title })),
+    classes: Array.from(new Map(
+      classRows
+        .filter((row) => !filters?.semesterCode || row.semesterCode === filters.semesterCode)
+        .map((row) => [row.id, { id: row.id, subjectCode: row.subjectCode, semesterCode: row.semesterCode }])
+    ).values()),
   };
 
   const summary = {

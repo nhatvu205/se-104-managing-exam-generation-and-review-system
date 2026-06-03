@@ -41,7 +41,10 @@ export default function LecturerYearReportPage() {
   }, []);
 
   const applyFilter = (key: string, value: string) => {
-    const next = { ...filters, [key]: value };
+    let next = { ...filters, [key]: value };
+    if (key === 'academicYear') next = { ...next, semesterCode: '', subjectCode: '', examId: '', classId: '' };
+    else if (key === 'semesterCode') next = { ...next, subjectCode: '', examId: '', classId: '' };
+    else if (key === 'subjectCode') next = { ...next, examId: '', classId: '' };
     setFilters(next);
     void load(next);
   };
