@@ -13,7 +13,9 @@ export function AcademicYearListPage({ onNavigate }) {
   const [toast, setToast] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [editTarget, setEditTarget] = useState(null);
-  const [editValue, setEditValue] = useState('');
+  const [editForm, setEditForm] = useState({ namHoc: '', trangThai: 'active', ngayBatDau: '', ngayKetThuc: '' });
+
+  const setEditField = (key) => (e) => setEditForm((prev) => ({ ...prev, [key]: e.target.value }));
 
   const load = async () => {
     setLoading(true);
@@ -53,13 +55,18 @@ export function AcademicYearListPage({ onNavigate }) {
     }
   };
 
-  const handleRename = async () => {
-    if (!editTarget || !editValue.trim()) return;
+  const handleEdit = async () => {
+    if (!editTarget || !editForm.namHoc.trim()) return;
     try {
-      await updateAcademicYear({ originalNamHoc: editTarget.code, namHoc: editValue.trim() });
+      await updateAcademicYear({
+        originalNamHoc: editTarget.code,
+        namHoc: editForm.namHoc.trim(),
+        trangThai: editForm.trangThai,
+        ngayBatDau: editForm.ngayBatDau,
+        ngayKetThuc: editForm.ngayKetThuc,
+      });
       setToast({ message: 'Đã cập nhật năm học.', type: 'success' });
       setEditTarget(null);
-      setEditValue('');
       await load();
     } catch (e) {
       setToast({ message: e.message || 'Không cập nhật được năm học', type: 'error' });
@@ -78,7 +85,7 @@ export function AcademicYearListPage({ onNavigate }) {
       label: 'Thao tác',
       render: (_, row) => (
         <div style={{ display: 'flex', gap: 8 }}>
-          <Btn size="sm" variant="secondary" onClick={() => { setEditTarget(row); setEditValue(row.name || ''); }}>Sửa tên</Btn>
+          <Btn size="sm" variant="secondary" onClick={() => { setEditTarget(row); setEditForm({ namHoc: row.name || '', trangThai: row.status || 'active', ngayBatDau: row.startDate || '', ngayKetThuc: row.endDate || '' }); }}>Sửa</Btn>
           <Btn size="sm" variant="danger" onClick={() => setDeleteTarget(row)}>Xóa</Btn>
         </div>
       ),
@@ -119,20 +126,38 @@ export function AcademicYearListPage({ onNavigate }) {
       />
       <Modal
         open={!!editTarget}
-        onClose={() => { setEditTarget(null); setEditValue(''); }}
-        title="Đổi tên năm học"
+        onClose={() => setEditTarget(null)}
+        title="Sửa năm học"
         footer={(
           <>
-            <Btn variant="secondary" onClick={() => { setEditTarget(null); setEditValue(''); }}>Hủy</Btn>
-            <Btn variant="primary" onClick={handleRename}>Lưu</Btn>
+            <Btn variant="secondary" onClick={() => setEditTarget(null)}>Hủy</Btn>
+            <Btn variant="primary" onClick={handleEdit} disabled={!editForm.namHoc.trim()}>Lưu</Btn>
           </>
         )}
       >
-        <div className="form-grid">
-          <div className="field">
-            <label>Tên năm học mới</label>
-            <input className="input" value={editValue} onChange={(e) => setEditValue(e.target.value)} />
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+          <div className="field" style={{ gridColumn: '1 / -1' }}>
+            <label htmlFor="edit-namHoc">Tên năm học <span style={{ color: 'var(--danger)' }}>*</span></label>
+            <input id="edit-namHoc" className="input" value={editForm.namHoc} onChange={setEditField('namHoc')} placeholder="VD: 2025-2026" />
           </div>
+          <div className="field">
+            <label htmlFor="edit-ngayBatDau">Ngày bắt đầu</label>
+            <input id="edit-ngayBatDau" className="input" type="date" value={editForm.ngayBatDau} onChange={setEditField('ngayBatDau')} />
+          </div>
+          <div className="field">
+            <label htmlFor="edit-ngayKetThuc">Ngày kết thúc</label>
+            <input id="edit-ngayKetThuc" className="input" type="date" value={editForm.ngayKetThuc} onChange={setEditField('ngayKetThuc')} />
+          </div>
+          <div className="field" style={{ gridColumn: '1 / -1' }}>
+            <label htmlFor="edit-trangThai">Trạng thái</label>
+            <select id="edit-trangThai" className="select" value={editForm.trangThai} onChange={setEditField('trangThai')}>
+              <option value="active">Đang hoạt động</option>
+              <option value="inactive">Không hoạt động</option>
+            </select>
+          </div>
+          <p className="field-help" style={{ gridColumn: '1 / -1', marginTop: 0 }}>
+            Thay đổi sẽ áp dụng cho tất cả học kỳ thuộc năm học này.
+          </p>
         </div>
       </Modal>
     </AdminLayout>

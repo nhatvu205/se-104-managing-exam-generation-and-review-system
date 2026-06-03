@@ -758,11 +758,22 @@ export async function fetchAcademicYears() {
   }));
 }
 
-export async function updateAcademicYear(payload: { originalNamHoc: string; namHoc: string }) {
+export async function updateAcademicYear(payload: {
+  originalNamHoc: string;
+  namHoc: string;
+  trangThai?: string;
+  ngayBatDau?: string;
+  ngayKetThuc?: string;
+}) {
   const client = getClient();
+  validateDateRange(payload.ngayBatDau, payload.ngayKetThuc);
+  const update: Record<string, any> = { NamHoc: payload.namHoc };
+  if (payload.trangThai !== undefined) update.TrangThai = payload.trangThai;
+  if (payload.ngayBatDau !== undefined) update.NgayBatDau = payload.ngayBatDau || null;
+  if (payload.ngayKetThuc !== undefined) update.NgayKetThuc = payload.ngayKetThuc || null;
   try {
     await queryFirst<any[]>(TABLES.semesters, (table) =>
-      client.from(table).update({ NamHoc: payload.namHoc }).eq('NamHoc', payload.originalNamHoc).select('MaHocKyNamHoc'),
+      client.from(table).update(update).eq('NamHoc', payload.originalNamHoc).select('MaHocKyNamHoc'),
     );
   } catch (error: any) {
     throw toAppError(error);
@@ -1150,11 +1161,14 @@ export async function saveLecturerExam(payload: {
     throw new Error('Vui lòng chọn ít nhất 1 câu hỏi để tạo đề.');
   }
   const ruleConfig = await fetchExamRuleConfig();
-  if (payload.questionIds.length < ruleConfig.minQuestionsPerExam) {
-    throw new Error(`Mỗi đề thi phải có ít nhất ${ruleConfig.minQuestionsPerExam} câu hỏi theo quy định hệ thống.`);
-  }
   if (payload.questionIds.length > ruleConfig.maxQuestionsPerExam) {
     throw new Error(`Mỗi đề thi chỉ được có tối đa ${ruleConfig.maxQuestionsPerExam} câu hỏi theo quy định hệ thống.`);
+  }
+  if (payload.durationMinutes && payload.durationMinutes < ruleConfig.minDurationMinutes) {
+    throw new Error(`Thời lượng làm bài phải từ ${ruleConfig.minDurationMinutes} phút trở lên.`);
+  }
+  if (payload.durationMinutes && payload.durationMinutes > ruleConfig.maxDurationMinutes) {
+    throw new Error(`Thời lượng làm bài không được vượt quá ${ruleConfig.maxDurationMinutes} phút.`);
   }
 
   const examId = payload.id || `DT${Date.now()}`;
@@ -1185,14 +1199,6 @@ export async function saveLecturerExam(payload: {
 
   if (detailRows.some((item) => item.DiemToiDa <= 0)) {
     throw new Error('Mỗi câu hỏi trong đề thi phải có điểm tối đa lớn hơn 0.');
-  }
-
-  const examsBySubjectRes = await queryFirst<any[]>(TABLES.exams, (table) =>
-    client.from(table).select('MaDeThi').eq('MaMonHoc', payload.subjectCode),
-  );
-  const examsBySubjectCount = (examsBySubjectRes.data || []).filter((row: any) => !payload.id || row.MaDeThi !== payload.id).length;
-  if (examsBySubjectCount >= ruleConfig.maxExamsPerSubject) {
-    throw new Error(`Môn học này đã đạt số đề thi tối đa (${ruleConfig.maxExamsPerSubject}) theo quy định hệ thống.`);
   }
 
   try {
@@ -1507,10 +1513,11 @@ export async function fetchSystemRuleMap() {
 export async function fetchExamRuleConfig() {
   const rules = await fetchSystemRuleMap();
   return {
-    maxQuestionsPerExam: Math.max(1, Number(rules.MAX_CAU_HOI_DE || 250)),
-    minQuestionsPerExam: Math.max(1, Number(rules.MIN_CAU_HOI_DE || 1)),
-    maxExamsPerSubject: Math.max(1, Number(rules.SO_DE_TOI_DA_MON || 999)),
-    defaultDurationMinutes: Math.max(15, Number(rules.THOI_GIAN_LAM_BAI_MAC_DINH || 60)),
+    maxQuestionsPerExam: Math.max(1, Number(rules.SoCauHoiToiDa ?? 5)),
+    maxDurationMinutes: Math.max(1, Number(rules.ThoiLuongToiDa ?? 180)),
+    minDurationMinutes: Math.max(1, Number(rules.ThoiLuongToiThieu ?? 30)),
+    maxScore: Number(rules.DiemToiDa ?? 10),
+    minScore: Number(rules.DiemToiThieu ?? 0),
   };
 }
 

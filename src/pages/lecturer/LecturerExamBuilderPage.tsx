@@ -29,10 +29,11 @@ export default function LecturerExamBuilderPage() {
   const [saved, setSaved] = useState(false);
   const [importMessage, setImportMessage] = useState('');
   const [ruleConfig, setRuleConfig] = useState({
-    maxQuestionsPerExam: 250,
-    minQuestionsPerExam: 1,
-    maxExamsPerSubject: 999,
-    defaultDurationMinutes: 60,
+    maxQuestionsPerExam: 5,
+    maxDurationMinutes: 180,
+    minDurationMinutes: 30,
+    maxScore: 10,
+    minScore: 0,
   });
 
   const load = async () => {
@@ -64,7 +65,7 @@ export default function LecturerExamBuilderPage() {
         if (subjectData[0]?.code) setSubjectCode(subjectData[0].code);
         if (semesterData[0]?.code) setSemesterCode(semesterData[0].code);
         setQuestionScores({});
-        setDurationMinutes(Number(examRules.defaultDurationMinutes || 60));
+        setDurationMinutes(Number(examRules.minDurationMinutes || 30));
       }
     } catch (e: any) {
       setError(e.message || 'Không tải được dữ liệu tạo đề');
@@ -272,7 +273,7 @@ export default function LecturerExamBuilderPage() {
               <label>Số câu đã chọn</label>
               <input className="input" value={`${selectedIds.length} câu`} readOnly />
               <p className="field-help">
-                Quy định hiện tại: tối thiểu {ruleConfig.minQuestionsPerExam} câu, tối đa {ruleConfig.maxQuestionsPerExam} câu cho mỗi đề; tối đa {ruleConfig.maxExamsPerSubject} đề cho mỗi môn.
+                Quy định hiện tại: tối đa {ruleConfig.maxQuestionsPerExam} câu/đề · thời lượng {ruleConfig.minDurationMinutes}–{ruleConfig.maxDurationMinutes} phút · điểm {ruleConfig.minScore}–{ruleConfig.maxScore}
               </p>
             </div>
 

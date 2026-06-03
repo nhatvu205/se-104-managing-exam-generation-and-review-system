@@ -6,3 +6,4 @@ dist/
 .vite/
 AGENT.md
 supabase/
+.mcp.json
