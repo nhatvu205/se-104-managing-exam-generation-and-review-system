@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import RoleLayout from '../../components/RoleLayout';
 import { Btn, PageState } from '../../layouts/AdminLayout';
+import { downloadDoc } from '../../lib/csv';
 import { fetchLecturerExamPreview } from '../../lib/supabaseData';
 import { withLecturerActive } from './lecturerNav';
 import { useLecturerIdentity } from './useLecturerIdentity';
@@ -30,6 +31,43 @@ export default function LecturerExamExportPage() {
   useEffect(() => {
     load();
   }, [id]);
+
+  const exportDoc = () => {
+    if (!exam) return;
+    const rows = (exam.questions || [])
+      .map((question: any) => {
+        const answer = question.questionType === 'TRAC_NGHIEM'
+          ? `Đáp án đúng: ${question.correctAnswer || '-'}<br/>${(question.choices || []).map((choice: any) => `${choice.key}. ${choice.text}`).join('<br/>')}`
+          : `Rubric: ${question.rubric || '-'}`;
+        return `<tr><td>${question.order}</td><td>${question.content}</td><td>${question.questionType === 'TRAC_NGHIEM' ? 'Trắc nghiệm' : 'Tự luận'}</td><td>${answer}</td></tr>`;
+      })
+      .join('');
+
+    downloadDoc(
+      `${exam.id}.doc`,
+      exam.title,
+      `
+        <h1>Hệ thống ra đề và chấm thi</h1>
+        <h2>${exam.title}</h2>
+        <p>Mã đề: ${exam.id}</p>
+        <p>Môn học: ${exam.subjectCode} - ${exam.subjectName}</p>
+        <p>Học kỳ: ${exam.semester}</p>
+        <p>Thời lượng: ${exam.durationMinutes} phút</p>
+        <p>Trạng thái: ${exam.status || '-'}</p>
+        <table>
+          <thead>
+            <tr>
+              <th>Thứ tự</th>
+              <th>Nội dung</th>
+              <th>Loại</th>
+              <th>Đáp án / rubric</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      `,
+    );
+  };
 
   return (
     <RoleLayout
@@ -98,8 +136,8 @@ export default function LecturerExamExportPage() {
             </div>
 
             <div className="actions">
-              <button className="btn btn-primary" type="button" onClick={() => window.print()}>
-                In đề thi
+              <button className="btn btn-primary" type="button" onClick={exportDoc}>
+                Tải DOC
               </button>
             </div>
           </>

@@ -46,7 +46,7 @@ export default function LecturerExamPreviewPage() {
         <div className="toolbar">
           <Link className="btn btn-secondary" to="/lecturer/exams">Quay lại</Link>
           {exam ? <Link className="btn btn-secondary" to={`/lecturer/exams/${exam.id}/edit`}>Sửa đề thi</Link> : null}
-          {exam ? <Link className="btn btn-primary" to={`/lecturer/exams/${exam.id}/export`}>In/PDF</Link> : null}
+          {exam ? <Link className="btn btn-primary" to={`/lecturer/exams/${exam.id}/export`}>Xuất DOC</Link> : null}
         </div>
       </header>
 

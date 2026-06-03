@@ -136,7 +136,7 @@ export default function LecturerExamListPage() {
                         <div className="toolbar">
                           <Link className="btn btn-secondary" to={`/lecturer/exams/${exam.id}/preview`}>Xem</Link>
                           <Link className="btn btn-secondary" to={`/lecturer/exams/${exam.id}/edit`}>Sửa</Link>
-                          <Link className="btn btn-tertiary" to={`/lecturer/exams/${exam.id}/export`}>In/PDF</Link>
+                          <Link className="btn btn-tertiary" to={`/lecturer/exams/${exam.id}/export`}>Xuất DOC</Link>
                           <select
                             className="select"
                             value={exam.status}

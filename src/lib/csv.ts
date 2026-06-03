@@ -62,6 +62,33 @@ export function downloadCsv(filename: string, content: string) {
   URL.revokeObjectURL(url);
 }
 
+export function downloadDoc(filename: string, title: string, bodyHtml: string) {
+  const html = `<!DOCTYPE html>
+  <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word">
+    <head>
+      <meta charset="utf-8" />
+      <title>${title}</title>
+      <style>
+        body { font-family: Arial, sans-serif; padding: 24px; color: #111827; }
+        h1, h2, h3 { margin: 0 0 12px; }
+        p { margin: 0 0 12px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 16px; }
+        th, td { border: 1px solid #d1d5db; padding: 8px; vertical-align: top; text-align: left; }
+        ul, ol { margin: 8px 0; }
+      </style>
+    </head>
+    <body>${bodyHtml}</body>
+  </html>`;
+
+  const blob = new Blob(['\uFEFF', html], { type: 'application/msword;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.click();
+  URL.revokeObjectURL(url);
+}
+
 export async function readCsvFile(file: File) {
   const buffer = await file.arrayBuffer();
   const bytes = new Uint8Array(buffer);
