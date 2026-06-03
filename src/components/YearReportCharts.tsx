@@ -75,11 +75,11 @@ function bySubject(rows: ReportRow[]) {
     .slice(0, 10);
 }
 
-// Aggregate rows by semester
-function bySemester(rows: ReportRow[]) {
+// Aggregate rows by academic year
+function byYear(rows: ReportRow[]) {
   const map = new Map<string, { label: string; exams: number; submissions: number }>();
   for (const row of rows) {
-    const key = row.semesterName || row.academicYear || 'N/A';
+    const key = row.academicYear || 'N/A';
     const existing = map.get(key);
     if (!existing) {
       map.set(key, { label: key, exams: 1, submissions: row.submissionCount });
@@ -167,13 +167,13 @@ export default function YearReportCharts({ rows }: Props) {
   if (!rows.length) return null;
 
   const subjectData = bySubject(rows);
-  const semesterData = bySemester(rows);
+  const yearData = byYear(rows);
   const pieData = gradingPie(rows);
   const pieTotal = pieData.reduce((s, d) => s + d.value, 0);
   const pieDataWithTotal = pieData.map((d) => ({ ...d, _total: pieTotal }));
   const timeData = scoreByTime(rows);
 
-  const showSemesterChart = semesterData.length > 1;
+  const showSemesterChart = yearData.length > 1;
   const showScoreChart = subjectData.some((d) => d.avgScore > 0);
   const showTimeChart = timeData.length > 1;
 
@@ -197,12 +197,12 @@ export default function YearReportCharts({ rows }: Props) {
           </ResponsiveContainer>
         </section>
 
-        {/* Chart 2: exams + submissions by semester (only when >1 semester) */}
+        {/* Chart 2: exams + submissions by academic year (only when >1 year) */}
         {showSemesterChart && (
           <section className="card">
-            <h2 className="section-title">Đề thi & bài thi theo học kỳ</h2>
+            <h2 className="section-title">Đề thi & bài thi theo năm học</h2>
             <ResponsiveContainer width="100%" height={260}>
-              <BarChart data={semesterData} margin={{ top: 4, right: 16, left: 0, bottom: 4 }}>
+              <BarChart data={yearData} margin={{ top: 4, right: 16, left: 0, bottom: 4 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                 <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#667085' }} />
                 <YAxis tick={{ fontSize: 12, fill: '#667085' }} allowDecimals={false} />
