@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import AdminLayout, { PageHeader, Card, Badge, ConfirmDialog, Input, Table, Pagination, Toast, PageState, Btn, tokens } from '../../layouts/AdminLayout';
-import { downloadExcelXml, readSpreadsheetFile } from '../../lib/csv';
+import { downloadCsvRows, downloadXlsx, readSpreadsheetFile } from '../../lib/csv';
 import { deleteClass, fetchClasses, saveClass } from '../../lib/supabaseData';
 
 const PAGE_SIZE = 10;
@@ -141,15 +141,28 @@ export function ClassListPage({ onNavigate }) {
               type="button"
               className="btn btn-secondary"
               onClick={() =>
-                downloadExcelXml(
-                  'template-lop-hoc-admin.xml',
+                void downloadXlsx(
+                  'template-lop-hoc-admin.xlsx',
                   ['code', 'name', 'subjectCode', 'semesterCode', 'lecturerId', 'studentCount', 'room', 'schedule'],
                   [['SE999_1', 'Lớp SE999_1', 'SE104', 'HKNH_2026_HK1', 'ND1779957873275', 45, 'E3.1', 'Thứ 2, tiết 1-3']],
                   'LopHoc',
                 )
               }
             >
-              Tải template Excel
+              Tải template XLSX
+            </button>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() =>
+                downloadCsvRows(
+                  'template-lop-hoc-admin.csv',
+                  ['code', 'name', 'subjectCode', 'semesterCode', 'lecturerId', 'studentCount', 'room', 'schedule'],
+                  [['SE999_1', 'Lớp SE999_1', 'SE104', 'HKNH_2026_HK1', 'ND1779957873275', 45, 'E3.1', 'Thứ 2, tiết 1-3']],
+                )
+              }
+            >
+              Tải template CSV
             </button>
             <Btn variant="primary" onClick={() => onNavigate('classes-form', '/admin/classes/form')}>+ Thêm lớp học</Btn>
           </div>
@@ -167,9 +180,9 @@ export function ClassListPage({ onNavigate }) {
                 <Input value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} placeholder="Tìm theo mã lớp / môn học / giảng viên..." />
               </div>
               <div className="field">
-                <label>Import file Excel</label>
-                <input className="input" type="file" accept=".xml,.csv,.txt,.xls" onChange={onUpload} disabled={importing} />
-                <p className="field-help">Hỗ trợ file CSV xuất từ Excel hoặc Excel XML 2003 theo template tải từ hệ thống.</p>
+                <label>Import file CSV/XLSX</label>
+                <input className="input" type="file" accept=".xlsx,.csv,text/csv,.xml,.txt,.xls" onChange={onUpload} disabled={importing} />
+                <p className="field-help">Hỗ trợ cả CSV và XLSX, đồng thời vẫn tương thích với XML Spreadsheet 2003 / text-like XLS cũ.</p>
               </div>
             </div>
             {importError ? <div className="field-error mt-16">{importError}</div> : null}

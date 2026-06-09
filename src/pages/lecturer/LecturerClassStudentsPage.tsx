@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
+import { type ChangeEvent, useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import RoleLayout from '../../components/RoleLayout';
 import { Btn, PageState } from '../../layouts/AdminLayout';
-import { downloadExcelXml } from '../../lib/csv';
-import { fetchLecturerClassStudents } from '../../lib/supabaseData';
+import { downloadCsvRows, downloadXlsx, readSpreadsheetFile } from '../../lib/csv';
+import { fetchLecturerClassStudents, importLecturerClassStudents } from '../../lib/supabaseData';
 import { withLecturerActive } from './lecturerNav';
 import { useLecturerIdentity } from './useLecturerIdentity';
 
@@ -15,6 +15,9 @@ export default function LecturerClassStudentsPage() {
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [importError, setImportError] = useState('');
+  const [importMessage, setImportMessage] = useState('');
+  const [importing, setImporting] = useState(false);
 
   const load = async () => {
     if (!id) return;
@@ -43,6 +46,46 @@ export default function LecturerClassStudentsPage() {
     );
   }, [students, search]);
 
+  const resolveValue = (row: Record<string, string>, keys: string[]) =>
+    keys.find((key) => row[key] !== undefined && row[key] !== null && String(row[key]).trim() !== '')
+      ? row[keys.find((key) => row[key] !== undefined && row[key] !== null && String(row[key]).trim() !== '') as string]
+      : '';
+
+  const handleImport = async (file: File) => {
+    if (!id) throw new Error('Thiếu mã lớp học.');
+    const { data } = await readSpreadsheetFile(file);
+    const normalizedRows = data.map((row) => ({
+      classCode: resolveValue(row, ['classCode', 'ClassCode', 'ma_lop_hoc', 'MaLopHoc']),
+      studentId: resolveValue(row, ['studentId', 'StudentId', 'ma_sinh_vien', 'MaSinhVien']),
+      fullName: resolveValue(row, ['fullName', 'FullName', 'ho_ten', 'HoTen']),
+      email: resolveValue(row, ['email', 'Email']),
+      phone: resolveValue(row, ['phone', 'Phone', 'so_dien_thoai', 'SoDienThoai']),
+      dateOfBirth: resolveValue(row, ['dateOfBirth', 'DateOfBirth', 'ngay_sinh', 'NgaySinh']),
+      joinedAt: resolveValue(row, ['joinedAt', 'JoinedAt', 'ngay_tham_gia', 'NgayThamGia']),
+      status: resolveValue(row, ['status', 'Status', 'trang_thai', 'TrangThai']),
+      note: resolveValue(row, ['note', 'Note', 'ghi_chu', 'GhiChu']),
+    }));
+    const result = await importLecturerClassStudents(id, normalizedRows);
+    setImportMessage(`Đã import ${result.successCount} sinh viên cho lớp ${result.classCode}.`);
+    await load();
+  };
+
+  const onUpload = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setImporting(true);
+    setImportError('');
+    setImportMessage('');
+    try {
+      await handleImport(file);
+    } catch (e: any) {
+      setImportError(e.message || 'Import danh sách sinh viên thất bại.');
+    } finally {
+      setImporting(false);
+      event.target.value = '';
+    }
+  };
+
   return (
     <RoleLayout
       title={lecturer.title}
@@ -63,15 +106,30 @@ export default function LecturerClassStudentsPage() {
               type="button"
               className="btn btn-tertiary"
               onClick={() =>
-                downloadExcelXml(
-                  `template-sinh-vien-${classInfo.code}.xml`,
+                void downloadXlsx(
+                  `template-sinh-vien-${classInfo.code}.xlsx`,
                   ['classCode', 'studentId', 'fullName', 'email', 'phone', 'dateOfBirth', 'joinedAt', 'status', 'note'],
                   [[classInfo.code, 'SV240999', 'Nguyễn Văn A', 'sv240999@uit.edu.vn', '0901999999', '2006-01-01', '2026-01-10', 'active', 'Sinh viên mẫu']],
                   'SinhVienLopHoc',
                 )
               }
             >
-              Tải template sinh viên
+              Tải template XLSX
+            </button>
+          ) : null}
+          {classInfo ? (
+            <button
+              type="button"
+              className="btn btn-tertiary"
+              onClick={() =>
+                downloadCsvRows(
+                  `template-sinh-vien-${classInfo.code}.csv`,
+                  ['classCode', 'studentId', 'fullName', 'email', 'phone', 'dateOfBirth', 'joinedAt', 'status', 'note'],
+                  [[classInfo.code, 'SV240999', 'Nguyễn Văn A', 'sv240999@uit.edu.vn', '0901999999', '2006-01-01', '2026-01-10', 'active', 'Sinh viên mẫu']],
+                )
+              }
+            >
+              Tải template CSV
             </button>
           ) : null}
           <Link className="btn btn-secondary" to="/lecturer/classes">Quay lại lớp học</Link>
@@ -105,6 +163,13 @@ export default function LecturerClassStudentsPage() {
                 </div>
               </div>
             </div>
+            <div className="field mt-16">
+              <label>Import danh sách sinh viên cho lớp</label>
+              <input className="input" type="file" accept=".xlsx,.csv,text/csv,.xml,.txt,.xls" onChange={onUpload} disabled={importing} />
+              <p className="field-help">Hỗ trợ cả CSV và XLSX. Nếu sinh viên đã tồn tại trong lớp, hệ thống sẽ cập nhật thông tin.</p>
+            </div>
+            {importError ? <div className="field-error mt-16">{importError}</div> : null}
+            {importMessage ? <div className="notice notice-success mt-16">{importMessage}</div> : null}
           </section>
 
           <section className="card">
