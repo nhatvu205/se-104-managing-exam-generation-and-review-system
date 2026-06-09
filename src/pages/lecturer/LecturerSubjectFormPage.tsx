@@ -48,6 +48,7 @@ export default function LecturerSubjectFormPage() {
   const importSubjects = async (file: File) => {
     const text = await readCsvFile(file);
     const { data } = parseCsv(text);
+    let successCount = 0;
     for (const row of data) {
       if (!row.code || !row.name) continue;
       await saveSubject({
@@ -56,8 +57,9 @@ export default function LecturerSubjectFormPage() {
         credits: Number(row.credits || 3),
         description: row.description || '',
       });
+      successCount += 1;
     }
-    setMessage(`Đã import ${data.length} môn học từ CSV.`);
+    setMessage(`Đã import ${successCount} môn học từ CSV.`);
   };
 
   const onUpload = async (event: ChangeEvent<HTMLInputElement>) => {

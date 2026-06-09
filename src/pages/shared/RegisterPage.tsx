@@ -18,12 +18,12 @@ export default function RegisterPage() {
     <main className="auth-layout" id="main-content" tabIndex={-1}>
       <section className="auth-card" aria-labelledby="register-title">
         <h1 id="register-title" className="auth-title">Đăng ký tài khoản</h1>
-        <p className="auth-subtitle">Tài khoản đăng ký mới sẽ được tạo với vai trò giảng viên.</p>
+        <p className="auth-subtitle">Tài khoản đăng ký mới sẽ được tạo với vai trò giảng viên và cần được quản trị viên duyệt trước khi đăng nhập.</p>
 
         {submitted ? (
           <section className="notice notice-success" aria-live="polite">
             <strong>Đăng ký tài khoản thành công.</strong>
-            <p className="mt-8">Bạn có thể quay lại màn hình đăng nhập để sử dụng tài khoản giảng viên vừa tạo.</p>
+            <p className="mt-8">Tài khoản của bạn đang ở trạng thái chờ duyệt. Sau khi được quản trị viên kích hoạt, bạn mới có thể đăng nhập.</p>
           </section>
         ) : (
           <form

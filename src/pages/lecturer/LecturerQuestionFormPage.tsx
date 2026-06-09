@@ -119,6 +119,7 @@ export default function LecturerQuestionFormPage() {
   const importQuestions = async (file: File) => {
     const text = await readCsvFile(file);
     const { data } = parseCsv(text);
+    let successCount = 0;
     for (const row of data) {
       if (!row.subject_code || !row.level_code || !row.content) continue;
       await saveLecturerQuestion({
@@ -137,8 +138,9 @@ export default function LecturerQuestionFormPage() {
         rubric: row.rubric || row.answer || '',
         status: row.status || 'Đang dùng',
       });
+      successCount += 1;
     }
-    setImportMessage(`Đã import ${data.length} câu hỏi từ CSV.`);
+    setImportMessage(`Đã import ${successCount} câu hỏi từ CSV.`);
   };
 
   const onUpload =

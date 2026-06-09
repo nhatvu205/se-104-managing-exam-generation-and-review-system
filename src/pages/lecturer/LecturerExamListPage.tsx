@@ -135,7 +135,13 @@ export default function LecturerExamListPage() {
                       <td data-label="Tác vụ">
                         <div className="toolbar">
                           <Link className="btn btn-secondary" to={`/lecturer/exams/${exam.id}/preview`}>Xem</Link>
-                          <Link className="btn btn-secondary" to={`/lecturer/exams/${exam.id}/edit`}>Sửa</Link>
+                          {exam.hasSubmissions ? (
+                            <button type="button" className="btn btn-secondary" disabled title="Đề thi đã phát sinh bài thi nên không thể sửa cấu trúc.">
+                              Đã khóa sửa
+                            </button>
+                          ) : (
+                            <Link className="btn btn-secondary" to={`/lecturer/exams/${exam.id}/edit`}>Sửa</Link>
+                          )}
                           <Link className="btn btn-tertiary" to={`/lecturer/exams/${exam.id}/export`}>Xuất DOC</Link>
                           <select
                             className="select"

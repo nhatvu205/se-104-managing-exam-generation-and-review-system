@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabaseClient';
-import { fetchCurrentUserRole } from '../../lib/supabaseData';
+import { fetchCurrentUserAccountStatus, fetchCurrentUserRole } from '../../lib/supabaseData';
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -32,7 +32,14 @@ export default function LoginPage() {
       if (role === 'admin') navigate('/admin/dashboard', { replace: true });
       else if (role === 'lecturer') navigate('/lecturer/year-report', { replace: true });
       else {
+        const accountStatus = await fetchCurrentUserAccountStatus(user.id, user.email);
         await supabase.auth.signOut({ scope: 'local' });
+        if (accountStatus === 'pending') {
+          throw new Error('Tài khoản của bạn đang chờ duyệt. Vui lòng liên hệ quản trị viên để được kích hoạt.');
+        }
+        if (accountStatus === 'inactive') {
+          throw new Error('Tài khoản của bạn đã bị khóa hoặc ngừng hoạt động.');
+        }
         navigate('/shared/error', { replace: true });
       }
     } catch (e: any) {

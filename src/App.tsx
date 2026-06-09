@@ -30,7 +30,7 @@ import LecturerSearchExamPage from './pages/lecturer/LecturerSearchExamPage';
 import LecturerGradingPage from './pages/lecturer/LecturerGradingPage';
 import LecturerGradingDetailPage from './pages/lecturer/LecturerGradingDetailPage';
 import { supabase } from './lib/supabaseClient';
-import { fetchCurrentUserRole, linkCurrentAuthUser, type AppRole } from './lib/supabaseData';
+import { fetchCurrentUserRole, type AppRole } from './lib/supabaseData';
 import LogoutPage from './pages/shared/LogoutPage';
 
 function RouteAccessibilitySupport() {
@@ -96,7 +96,6 @@ export default function App() {
       }
 
       try {
-        await linkCurrentAuthUser();
         const detectedRole = await fetchCurrentUserRole(session.user.id, session.user.email);
         if (!active) return;
         setIsAuthenticated(true);

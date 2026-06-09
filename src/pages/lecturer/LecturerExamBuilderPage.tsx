@@ -138,6 +138,7 @@ export default function LecturerExamBuilderPage() {
   const importExams = async (file: File) => {
     const text = await readCsvFile(file);
     const { data } = parseCsv(text);
+    let successCount = 0;
     for (const row of data) {
       if (!row.title || !row.subject_code || !row.semester_code || !row.question_ids) continue;
       await saveLecturerExam({
@@ -153,11 +154,12 @@ export default function LecturerExamBuilderPage() {
           .map((questionId: string, index: number) => ({
             questionId,
             maxScore: Number(String(row.question_scores || '').split(';')[index] || 1),
-          })),
+        })),
         status: row.status || 'Đang dùng',
       });
+      successCount += 1;
     }
-    setImportMessage(`Đã import ${data.length} đề thi từ CSV.`);
+    setImportMessage(`Đã import ${successCount} đề thi từ CSV.`);
   };
 
   const onUpload = async (event: ChangeEvent<HTMLInputElement>) => {
