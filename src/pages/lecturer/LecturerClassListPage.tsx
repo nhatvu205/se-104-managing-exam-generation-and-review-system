@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
+import { type ChangeEvent, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import RoleLayout from '../../components/RoleLayout';
-import { Btn, PageState } from '../../layouts/AdminLayout';
-import { fetchLecturerClasses } from '../../lib/supabaseData';
+import { Btn, ConfirmDialog, PageState, Toast } from '../../layouts/AdminLayout';
+import { downloadExcelXml, readSpreadsheetFile } from '../../lib/csv';
+import { deleteLecturerClass, fetchLecturerClasses, saveLecturerClass } from '../../lib/supabaseData';
 import { withLecturerActive } from './lecturerNav';
 import { useLecturerIdentity } from './useLecturerIdentity';
 
@@ -12,6 +13,11 @@ export default function LecturerClassListPage() {
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [importError, setImportError] = useState('');
+  const [importMessage, setImportMessage] = useState('');
+  const [toast, setToast] = useState<any>(null);
+  const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
+  const [importing, setImporting] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -45,6 +51,63 @@ export default function LecturerClassListPage() {
     [filtered],
   );
 
+  const resolveValue = (row: Record<string, string>, keys: string[]) =>
+    keys.find((key) => row[key] !== undefined && row[key] !== null && String(row[key]).trim() !== '')
+      ? row[keys.find((key) => row[key] !== undefined && row[key] !== null && String(row[key]).trim() !== '') as string]
+      : '';
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    try {
+      await deleteLecturerClass(deleteTarget.id);
+      setToast({ message: `Đã xóa lớp ${deleteTarget.code}.`, type: 'success' });
+      setDeleteTarget(null);
+      await load();
+    } catch (e: any) {
+      setToast({ message: e.message || 'Không xóa được lớp học.', type: 'error' });
+    }
+  };
+
+  const handleImport = async (file: File) => {
+    const { data } = await readSpreadsheetFile(file);
+    let successCount = 0;
+    for (const row of data) {
+      const code = resolveValue(row, ['code', 'Code', 'ma_lop_hoc', 'MaLopHoc']);
+      const subjectCode = resolveValue(row, ['subjectCode', 'SubjectCode', 'ma_mon_hoc', 'MaMonHoc']);
+      const semesterCode = resolveValue(row, ['semesterCode', 'SemesterCode', 'ma_hoc_ky_nam_hoc', 'MaHocKyNamHoc']);
+      if (!code || !subjectCode || !semesterCode) continue;
+
+      await saveLecturerClass({
+        code,
+        subjectCode,
+        semesterCode,
+        studentCount: Number(resolveValue(row, ['studentCount', 'StudentCount', 'si_so', 'SiSo']) || 0),
+        room: resolveValue(row, ['room', 'Room', 'phong_hoc', 'PhongHoc']),
+        schedule: resolveValue(row, ['schedule', 'Schedule', 'lich_hoc', 'LichHoc']),
+      });
+      successCount += 1;
+    }
+
+    setImportMessage(`Đã import ${successCount} lớp học từ file Excel.`);
+    await load();
+  };
+
+  const onUpload = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setImporting(true);
+    setImportError('');
+    setImportMessage('');
+    try {
+      await handleImport(file);
+    } catch (e: any) {
+      setImportError(e.message || 'Import file Excel thất bại.');
+    } finally {
+      setImporting(false);
+      event.target.value = '';
+    }
+  };
+
   return (
     <RoleLayout
       title={lecturer.title}
@@ -56,6 +119,23 @@ export default function LecturerClassListPage() {
         <div>
           <h1 className="page-title">Quản lý lớp học</h1>
           <p className="page-subtitle">{loading ? 'Đang tải dữ liệu...' : `${filtered.length} lớp học bạn đang phụ trách`}</p>
+        </div>
+        <div className="toolbar">
+          <Link className="btn btn-tertiary" to="/lecturer/classes/create">+ Thêm lớp học</Link>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={() =>
+              downloadExcelXml(
+                'template-lop-hoc.xml',
+                ['code', 'subjectCode', 'semesterCode', 'studentCount', 'room', 'schedule'],
+                [['SE999_1', 'SE104', 'HKNH_2026_HK1', 45, 'E3.1', 'Thứ 2, tiết 1-3']],
+                'LopHoc',
+              )
+            }
+          >
+            Tải template Excel
+          </button>
         </div>
       </header>
 
@@ -70,10 +150,19 @@ export default function LecturerClassListPage() {
       ) : (
         <>
           <section className="card">
-            <div className="field">
-              <label>Tìm kiếm</label>
-              <input className="input" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Mã lớp / môn học / học kỳ" />
+            <div className="form-grid two">
+              <div className="field">
+                <label>Tìm kiếm</label>
+                <input className="input" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Mã lớp / môn học / học kỳ" />
+              </div>
+              <div className="field">
+                <label>Import file Excel</label>
+                <input className="input" type="file" accept=".xml,.csv,.txt,.xls" onChange={onUpload} disabled={importing} />
+                <p className="field-help">Hỗ trợ file CSV xuất từ Excel hoặc Excel XML 2003 theo template tải từ hệ thống.</p>
+              </div>
             </div>
+            {importError ? <div className="field-error mt-16">{importError}</div> : null}
+            {importMessage ? <div className="notice notice-success mt-16">{importMessage}</div> : null}
           </section>
 
           <section className="card">
@@ -110,7 +199,9 @@ export default function LecturerClassListPage() {
                       </td>
                       <td data-label="Tác vụ">
                         <div className="toolbar">
+                          <Link className="btn btn-tertiary" to={`/lecturer/classes/${row.id}/edit`}>Sửa</Link>
                           <Link className="btn btn-secondary" to={`/lecturer/classes/${row.id}/students`}>Xem danh sách SV</Link>
+                          <button type="button" className="btn btn-danger" onClick={() => setDeleteTarget(row)}>Xóa</button>
                         </div>
                       </td>
                     </tr>
@@ -126,6 +217,17 @@ export default function LecturerClassListPage() {
           </section>
         </>
       )}
+      {toast ? <Toast message={toast.message} type={toast.type} onDismiss={() => setToast(null)} /> : null}
+      <ConfirmDialog
+        open={!!deleteTarget}
+        title="Xóa lớp học"
+        message={`Bạn có chắc muốn xóa lớp ${deleteTarget?.code || ''}?`}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={() => {
+          void handleDelete();
+        }}
+        confirmLabel="Xóa"
+      />
     </RoleLayout>
   );
 }

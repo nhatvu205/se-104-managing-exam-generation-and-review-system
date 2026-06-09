@@ -31,6 +31,7 @@ import LecturerGradingPage from './pages/lecturer/LecturerGradingPage';
 import LecturerGradingDetailPage from './pages/lecturer/LecturerGradingDetailPage';
 import LecturerClassListPage from './pages/lecturer/LecturerClassListPage';
 import LecturerClassStudentsPage from './pages/lecturer/LecturerClassStudentsPage';
+import LecturerClassFormPage from './pages/lecturer/LecturerClassFormPage';
 import { supabase } from './lib/supabaseClient';
 import { fetchCurrentUserRole, type AppRole } from './lib/supabaseData';
 import LogoutPage from './pages/shared/LogoutPage';
@@ -172,6 +173,8 @@ export default function App() {
 
         <Route path="/lecturer" element={<Navigate to="/lecturer/year-report" replace />} />
         <Route path="/lecturer/classes" element={requireAuth(<LecturerClassListPage />, 'lecturer')} />
+        <Route path="/lecturer/classes/create" element={requireAuth(<LecturerClassFormPage />, 'lecturer')} />
+        <Route path="/lecturer/classes/:id/edit" element={requireAuth(<LecturerClassFormPage />, 'lecturer')} />
         <Route path="/lecturer/classes/:id/students" element={requireAuth(<LecturerClassStudentsPage />, 'lecturer')} />
         <Route path="/lecturer/year-report" element={requireAuth(<LecturerYearReportPage />, 'lecturer')} />
         <Route path="/lecturer/subjects" element={requireAuth(<LecturerSubjectListPage />, 'lecturer')} />

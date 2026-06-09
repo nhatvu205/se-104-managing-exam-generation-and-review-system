@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import RoleLayout from '../../components/RoleLayout';
 import { Btn, PageState } from '../../layouts/AdminLayout';
+import { downloadExcelXml } from '../../lib/csv';
 import { fetchLecturerClassStudents } from '../../lib/supabaseData';
 import { withLecturerActive } from './lecturerNav';
 import { useLecturerIdentity } from './useLecturerIdentity';
@@ -57,6 +58,22 @@ export default function LecturerClassStudentsPage() {
           </p>
         </div>
         <div className="toolbar">
+          {classInfo ? (
+            <button
+              type="button"
+              className="btn btn-tertiary"
+              onClick={() =>
+                downloadExcelXml(
+                  `template-sinh-vien-${classInfo.code}.xml`,
+                  ['classCode', 'studentId', 'fullName', 'email', 'phone', 'dateOfBirth', 'joinedAt', 'status', 'note'],
+                  [[classInfo.code, 'SV240999', 'Nguyễn Văn A', 'sv240999@uit.edu.vn', '0901999999', '2006-01-01', '2026-01-10', 'active', 'Sinh viên mẫu']],
+                  'SinhVienLopHoc',
+                )
+              }
+            >
+              Tải template sinh viên
+            </button>
+          ) : null}
           <Link className="btn btn-secondary" to="/lecturer/classes">Quay lại lớp học</Link>
         </div>
       </header>

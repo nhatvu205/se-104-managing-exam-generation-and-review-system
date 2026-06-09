@@ -1,4 +1,27 @@
-export function parseCsv(text: string) {
+function rowsToObjects(rows: string[][]) {
+  if (!rows.length) return { headers: [], data: [] as Record<string, string>[] };
+  const headers = rows[0].map((header) => header.replace(/^\uFEFF/, '').trim());
+  const data = rows.slice(1).map((values) =>
+    headers.reduce((acc, header, index) => {
+      acc[header] = values[index] || '';
+      return acc;
+    }, {} as Record<string, string>),
+  );
+
+  return { headers, data };
+}
+
+function detectDelimiter(text: string) {
+  const firstLine = text.split(/\r?\n/).find((line) => line.trim().length > 0) || '';
+  const candidates = [',', ';', '\t'];
+  const counts = candidates.map((delimiter) => ({
+    delimiter,
+    count: firstLine.split(delimiter).length,
+  }));
+  return counts.sort((a, b) => b.count - a.count)[0]?.delimiter || ',';
+}
+
+export function parseCsv(text: string, delimiter = detectDelimiter(text)) {
   const rows: string[][] = [];
   let current = '';
   let row: string[] = [];
@@ -18,7 +41,7 @@ export function parseCsv(text: string) {
       continue;
     }
 
-    if (char === ',' && !inQuotes) {
+    if (char === delimiter && !inQuotes) {
       row.push(current.trim());
       current = '';
       continue;
@@ -39,16 +62,59 @@ export function parseCsv(text: string) {
   row.push(current.trim());
   if (row.some((cell) => cell.length > 0)) rows.push(row);
 
-  if (!rows.length) return { headers: [], data: [] as Record<string, string>[] };
-  const headers = rows[0].map((header) => header.replace(/^\uFEFF/, '').trim());
-  const data = rows.slice(1).map((values) =>
-    headers.reduce((acc, header, index) => {
-      acc[header] = values[index] || '';
-      return acc;
-    }, {} as Record<string, string>),
-  );
+  return rowsToObjects(rows);
+}
 
-  return { headers, data };
+function parseHtmlTable(text: string) {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(text, 'text/html');
+  const rowNodes = Array.from(doc.querySelectorAll('table tr'));
+  const rows = rowNodes
+    .map((rowNode) =>
+      Array.from(rowNode.querySelectorAll('th,td')).map((cell) => (cell.textContent || '').trim()),
+    )
+    .filter((row) => row.some((cell) => cell.length > 0));
+  return rowsToObjects(rows);
+}
+
+function parseExcelXml(text: string) {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(text, 'application/xml');
+  const parseError = doc.querySelector('parsererror');
+  if (parseError) throw new Error('File Excel XML không hợp lệ.');
+
+  const rowNodes = Array.from(doc.getElementsByTagName('Row'));
+  const rows = rowNodes.map((rowNode) => {
+    const values: string[] = [];
+    Array.from(rowNode.getElementsByTagName('Cell')).forEach((cellNode) => {
+      const indexAttr = cellNode.getAttribute('ss:Index') || cellNode.getAttribute('Index');
+      if (indexAttr) {
+        const targetIndex = Math.max(1, Number(indexAttr)) - 1;
+        while (values.length < targetIndex) values.push('');
+      }
+      const dataNode = cellNode.getElementsByTagName('Data')[0];
+      values.push((dataNode?.textContent || '').trim());
+    });
+    return values;
+  }).filter((row) => row.some((cell) => cell.length > 0));
+
+  return rowsToObjects(rows);
+}
+
+export function parseSpreadsheetText(text: string) {
+  const normalized = text.trimStart();
+  if (!normalized) return { headers: [], data: [] as Record<string, string>[] };
+
+  if (normalized.startsWith('<')) {
+    if (/urn:schemas-microsoft-com:office:spreadsheet/i.test(normalized) || /<Workbook/i.test(normalized)) {
+      return parseExcelXml(text);
+    }
+    if (/<table/i.test(normalized)) {
+      return parseHtmlTable(text);
+    }
+  }
+
+  return parseCsv(text);
 }
 
 export function downloadCsv(filename: string, content: string) {
@@ -101,4 +167,68 @@ export async function readCsvFile(file: File) {
   } catch {
     return utf8;
   }
+}
+
+export async function readSpreadsheetFile(file: File) {
+  const extension = file.name.split('.').pop()?.toLowerCase() || '';
+  if (extension === 'xlsx') {
+    throw new Error('Hiện hệ thống hỗ trợ import Excel dạng XML 2003 / XLS văn bản / CSV xuất từ Excel. Vui lòng lưu file Excel thành XML Spreadsheet 2003 hoặc CSV rồi import.');
+  }
+
+  const text = await readCsvFile(file);
+  if (extension === 'xls') {
+    const normalized = text.trimStart().toLowerCase();
+    const looksLikeTextExcel = normalized.startsWith('<') || normalized.includes('\t') || normalized.includes(',') || normalized.includes(';');
+    if (!looksLikeTextExcel) {
+      throw new Error('File .xls hiện tại không ở dạng văn bản mà hệ thống có thể đọc. Vui lòng dùng template Excel từ hệ thống hoặc lưu lại file dưới dạng XML Spreadsheet 2003 / CSV rồi import.');
+    }
+  }
+
+  const parsed = parseSpreadsheetText(text);
+  if (!parsed.headers.length) {
+    throw new Error('File import không có dữ liệu hợp lệ hoặc không đúng định dạng template lớp học.');
+  }
+  return parsed;
+}
+
+function escapeXml(value: string) {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
+export function downloadExcelXml(
+  filename: string,
+  headers: string[],
+  rows: Array<Array<string | number | null | undefined>>,
+  worksheetName = 'Sheet1',
+) {
+  const xml = `<?xml version="1.0"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:o="urn:schemas-microsoft-com:office:office"
+ xmlns:x="urn:schemas-microsoft-com:office:excel"
+ xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
+  <Worksheet ss:Name="${escapeXml(worksheetName)}">
+    <Table>
+      <Row>
+        ${headers.map((header) => `<Cell><Data ss:Type="String">${escapeXml(String(header))}</Data></Cell>`).join('')}
+      </Row>
+      ${rows.map((row) => `
+      <Row>
+        ${row.map((cell) => `<Cell><Data ss:Type="String">${escapeXml(String(cell ?? ''))}</Data></Cell>`).join('')}
+      </Row>`).join('')}
+    </Table>
+  </Worksheet>
+</Workbook>`;
+
+  const blob = new Blob(['\uFEFF', xml], { type: 'application/vnd.ms-excel;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.click();
+  URL.revokeObjectURL(url);
 }

@@ -948,13 +948,39 @@ export async function saveClass(payload: {
 }) {
   const client = getClient();
   const normalizedCode = payload.code.trim();
+  if (!normalizedCode) throw new Error('Mã lớp học là bắt buộc.');
+  if (!payload.semesterCode) throw new Error('Học kỳ là bắt buộc.');
+  if (!payload.subjectCode) throw new Error('Môn học là bắt buộc.');
+  if (!payload.lecturerId) throw new Error('Giảng viên phụ trách là bắt buộc.');
+  const plannedStudentCount = Number(payload.studentCount || 0);
+  if (Number.isNaN(plannedStudentCount) || plannedStudentCount < 0) {
+    throw new Error('Sĩ số lớp học phải lớn hơn hoặc bằng 0.');
+  }
+
+  const existingClass = await queryFirstSafe<any[]>(TABLES.classes, (table) =>
+    client.from(table).select('MaLopHoc').eq('MaLopHoc', normalizedCode).limit(1), []
+  );
+  if (!payload.id && (existingClass.data || []).length > 0) {
+    throw new Error(`Mã lớp "${normalizedCode}" đã tồn tại.`);
+  }
+
+  if (payload.id) {
+    const enrolledRows = await queryFirstSafe<any[]>(TABLES.classStudents, (table) =>
+      client.from(table).select('MaSinhVienLopHoc').eq('MaLopHoc', payload.id).eq('TrangThai', 'active'), []
+    );
+    const enrolledCount = (enrolledRows.data || []).length;
+    if (plannedStudentCount < enrolledCount) {
+      throw new Error(`Sĩ số kế hoạch không được nhỏ hơn số sinh viên hiện có (${enrolledCount}).`);
+    }
+  }
+
   const row = {
     MaLopHoc: normalizedCode,
     TenLopHoc: payload.name.trim() || normalizedCode,
     MaHocKyNamHoc: payload.semesterCode,
     MaMonHoc: payload.subjectCode,
     MaGiangVien: payload.lecturerId,
-    SiSo: Number(payload.studentCount || 0),
+    SiSo: plannedStudentCount,
     PhongHoc: payload.room?.trim() || null,
     LichHoc: payload.schedule?.trim() || null,
   };
@@ -968,6 +994,54 @@ export async function saveClass(payload: {
   } catch (error: any) {
     throw toAppError(error);
   }
+}
+
+export async function fetchLecturerOwnedClassById(classId: string) {
+  const rows = await fetchLecturerClasses();
+  return rows.find((row) => String(row.id) === String(classId)) || null;
+}
+
+export async function saveLecturerClass(payload: {
+  id?: string;
+  code: string;
+  name?: string;
+  semesterCode: string;
+  subjectCode: string;
+  studentCount?: number;
+  room?: string;
+  schedule?: string;
+}) {
+  const currentUserId = await resolveCurrentDbUserId();
+  if (!currentUserId) {
+    throw new Error('Không xác định được giảng viên đăng nhập. Vui lòng đăng nhập lại.');
+  }
+
+  if (payload.id) {
+    const ownedClass = await fetchLecturerOwnedClassById(payload.id);
+    if (!ownedClass) {
+      throw new Error('Bạn không có quyền chỉnh sửa lớp học này.');
+    }
+  }
+
+  return saveClass({
+    id: payload.id,
+    code: payload.code,
+    name: payload.name || payload.code,
+    semesterCode: payload.semesterCode,
+    subjectCode: payload.subjectCode,
+    lecturerId: currentUserId,
+    studentCount: payload.studentCount,
+    room: payload.room,
+    schedule: payload.schedule,
+  });
+}
+
+export async function deleteLecturerClass(classId: string) {
+  const ownedClass = await fetchLecturerOwnedClassById(classId);
+  if (!ownedClass) {
+    throw new Error('Bạn không có quyền xóa lớp học này.');
+  }
+  await deleteClass(classId);
 }
 
 export async function deleteClass(classId: string) {
