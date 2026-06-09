@@ -56,7 +56,16 @@ export function ClassListPage({ onNavigate }) {
     { key: 'subjectName', label: 'Môn học' },
     { key: 'lecturerName', label: 'Giảng viên' },
     { key: 'academicYearName', label: 'Năm học' },
-    { key: 'studentCount', label: 'Sĩ số' },
+    {
+      key: 'studentCount',
+      label: 'Sĩ số',
+      render: (_, row) => (
+        <div>
+          <strong>{row.studentCount || 0}</strong>
+          <div style={{ fontSize: 12, color: tokens.textMuted }}>Chỉ tiêu: {row.plannedStudentCount || 0}</div>
+        </div>
+      ),
+    },
     { key: 'status', label: 'Trạng thái', render: (v) => <Badge label={v === 'active' ? 'Đang hoạt động' : 'Không hoạt động'} color={v} /> },
     {
       key: 'actions',

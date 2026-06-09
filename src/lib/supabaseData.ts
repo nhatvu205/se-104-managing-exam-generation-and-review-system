@@ -14,6 +14,8 @@ const TABLES = {
   params: ['THAMSO', 'thamso'],
   levels: ['MUCDO', 'mucdo'],
   publicUserDirectory: ['NGUOIDUNG_CONGKHAI', 'nguoidung_congkhai'],
+  students: ['SINHVIEN', 'sinhvien'],
+  classStudents: ['SINHVIEN_LOPHOC', 'sinhvien_lophoc'],
 } as const;
 
 const DEFAULT_ROLE_OPTIONS = [
@@ -882,19 +884,25 @@ export async function deleteAcademicYear(namHoc: string) {
 export async function fetchClasses() {
   const client = getClient();
 
-  const [classesRes, subjectsRes, usersRes, semRes] = await Promise.all([
+  const [classesRes, subjectsRes, usersRes, semRes, classStudentsRes] = await Promise.all([
     queryFirst<any[]>(TABLES.classes, (table) => client.from(table).select('*')),
     queryFirstSafe<any[]>(TABLES.subjects, (table) => client.from(table).select('MaMonHoc,TenMonHoc'), []),
     queryFirstSafe<any[]>(TABLES.users, (table) => client.from(table).select('MaNguoiDung,HoTen'), []),
     queryFirstSafe<any[]>(TABLES.semesters, (table) => client.from(table).select('MaHocKyNamHoc,TenHocKy,NamHoc'), []),
+    queryFirstSafe<any[]>(TABLES.classStudents, (table) => client.from(table).select('MaLopHoc,MaSinhVien').eq('TrangThai', 'active'), []),
   ]);
 
   const subjectMap = new Map((subjectsRes.data || []).map((s: any) => [s.MaMonHoc, s.TenMonHoc]));
   const userMap = new Map((usersRes.data || []).map((u: any) => [u.MaNguoiDung, u.HoTen]));
   const semMap = new Map((semRes.data || []).map((s: any) => [s.MaHocKyNamHoc, s]));
+  const enrollmentCountMap: Record<string, number> = {};
+  (classStudentsRes.data || []).forEach((row: any) => {
+    enrollmentCountMap[row.MaLopHoc] = (enrollmentCountMap[row.MaLopHoc] || 0) + 1;
+  });
 
   return (classesRes.data || []).map((c: any) => {
     const sem = semMap.get(c.MaHocKyNamHoc);
+    const actualStudentCount = enrollmentCountMap[c.MaLopHoc] || 0;
     return {
       id: c.MaLopHoc,
       code: c.MaLopHoc,
@@ -906,7 +914,8 @@ export async function fetchClasses() {
       lecturerName: userMap.get(c.MaGiangVien) || c.MaGiangVien,
       semesterName: sem?.TenHocKy || '',
       academicYearName: sem?.NamHoc || '',
-      studentCount: c.SiSo || 0,
+      studentCount: actualStudentCount,
+      plannedStudentCount: c.SiSo || 0,
       room: c.PhongHoc || '',
       schedule: c.LichHoc || '',
       status: 'active',
@@ -963,11 +972,127 @@ export async function saveClass(payload: {
 
 export async function deleteClass(classId: string) {
   const client = getClient();
+  const studentsRes = await queryFirstSafe<any[]>(TABLES.classStudents, (table) =>
+    client.from(table).select('MaSinhVienLopHoc').eq('MaLopHoc', classId).limit(1), []
+  );
+  if ((studentsRes.data || []).length > 0) {
+    throw new Error('Không thể xóa lớp học này vì đã có danh sách sinh viên. Hãy gỡ sinh viên khỏi lớp trước.');
+  }
   try {
     await queryFirst<any[]>(TABLES.classes, (table) => client.from(table).delete().eq('MaLopHoc', classId).select('MaLopHoc'));
   } catch (error: any) {
     throw toAppError(error);
   }
+}
+
+export async function fetchLecturerClasses() {
+  const client = getClient();
+  const currentUserId = await resolveCurrentDbUserId();
+  if (!currentUserId) {
+    throw new Error('Không xác định được giảng viên đăng nhập. Vui lòng đăng nhập lại.');
+  }
+
+  const [classesRes, subjectsRes, semestersRes, classStudentsRes] = await Promise.all([
+    queryFirst<any[]>(TABLES.classes, (table) =>
+      client.from(table).select('*').eq('MaGiangVien', currentUserId).order('MaLopHoc', { ascending: true })
+    ),
+    queryFirstSafe<any[]>(TABLES.subjects, (table) => client.from(table).select('MaMonHoc,TenMonHoc'), []),
+    queryFirstSafe<any[]>(TABLES.semesters, (table) => client.from(table).select('MaHocKyNamHoc,TenHocKy,NamHoc'), []),
+    queryFirstSafe<any[]>(TABLES.classStudents, (table) => client.from(table).select('MaLopHoc,MaSinhVien').eq('TrangThai', 'active'), []),
+  ]);
+
+  const subjectMap = new Map((subjectsRes.data || []).map((row: any) => [row.MaMonHoc, row.TenMonHoc || row.MaMonHoc]));
+  const semesterMap = new Map((semestersRes.data || []).map((row: any) => [row.MaHocKyNamHoc, row]));
+  const enrolledCountMap: Record<string, number> = {};
+  (classStudentsRes.data || []).forEach((row: any) => {
+    enrolledCountMap[row.MaLopHoc] = (enrolledCountMap[row.MaLopHoc] || 0) + 1;
+  });
+
+  return (classesRes.data || []).map((row: any) => {
+    const semester = semesterMap.get(row.MaHocKyNamHoc);
+    return {
+      id: row.MaLopHoc,
+      code: row.MaLopHoc,
+      name: row.TenLopHoc || row.MaLopHoc,
+      subjectCode: row.MaMonHoc || '',
+      subjectName: subjectMap.get(row.MaMonHoc) || row.MaMonHoc || '',
+      semesterCode: row.MaHocKyNamHoc || '',
+      semesterName: semester?.TenHocKy || '',
+      academicYearName: semester?.NamHoc || '',
+      room: row.PhongHoc || '',
+      schedule: row.LichHoc || '',
+      plannedStudentCount: Number(row.SiSo || 0),
+      studentCount: enrolledCountMap[row.MaLopHoc] || 0,
+      status: 'active',
+    };
+  });
+}
+
+export async function fetchLecturerClassStudents(classId: string) {
+  const client = getClient();
+  const currentUserId = await resolveCurrentDbUserId();
+  if (!currentUserId) {
+    throw new Error('Không xác định được giảng viên đăng nhập. Vui lòng đăng nhập lại.');
+  }
+
+  const classRes = await queryFirst<any[]>(TABLES.classes, (table) =>
+    client.from(table).select('*').eq('MaLopHoc', classId).eq('MaGiangVien', currentUserId).limit(1)
+  );
+  const classRow = (classRes.data || [])[0];
+  if (!classRow) {
+    throw new Error('Không tìm thấy lớp học hoặc bạn không có quyền xem lớp này.');
+  }
+
+  const [subjectsRes, semestersRes, enrollmentsRes] = await Promise.all([
+    queryFirstSafe<any[]>(TABLES.subjects, (table) => client.from(table).select('MaMonHoc,TenMonHoc'), []),
+    queryFirstSafe<any[]>(TABLES.semesters, (table) => client.from(table).select('MaHocKyNamHoc,TenHocKy,NamHoc'), []),
+    queryFirstSafe<any[]>(TABLES.classStudents, (table) =>
+      client.from(table).select('*').eq('MaLopHoc', classId).order('MaSinhVien', { ascending: true }), []
+    ),
+  ]);
+  const studentIds = Array.from(new Set((enrollmentsRes.data || []).map((row: any) => row.MaSinhVien).filter(Boolean)));
+  const studentsRes = studentIds.length > 0
+    ? await queryFirstSafe<any[]>(TABLES.students, (table) =>
+      client.from(table).select('*').in('MaSinhVien', studentIds).order('MaSinhVien', { ascending: true }), []
+    )
+    : { data: [], table: TABLES.students[0] };
+
+  const subjectMap = new Map((subjectsRes.data || []).map((row: any) => [row.MaMonHoc, row.TenMonHoc || row.MaMonHoc]));
+  const semesterMap = new Map((semestersRes.data || []).map((row: any) => [row.MaHocKyNamHoc, row]));
+  const studentMap = new Map((studentsRes.data || []).map((row: any) => [row.MaSinhVien, row]));
+  const semester = semesterMap.get(classRow.MaHocKyNamHoc);
+  const roster = (enrollmentsRes.data || []).map((row: any) => {
+    const student = studentMap.get(row.MaSinhVien);
+    return {
+      id: row.MaSinhVienLopHoc,
+      studentId: row.MaSinhVien,
+      fullName: student?.HoTen || row.MaSinhVien,
+      email: student?.Email || '',
+      phone: student?.SoDienThoai || '',
+      dateOfBirth: student?.NgaySinh || '',
+      joinedAt: row.NgayThamGia || '',
+      status: normalizeStatus(row.TrangThai),
+      note: row.GhiChu || '',
+    };
+  });
+
+  return {
+    classInfo: {
+      id: classRow.MaLopHoc,
+      code: classRow.MaLopHoc,
+      name: classRow.TenLopHoc || classRow.MaLopHoc,
+      subjectCode: classRow.MaMonHoc || '',
+      subjectName: subjectMap.get(classRow.MaMonHoc) || classRow.MaMonHoc || '',
+      semesterCode: classRow.MaHocKyNamHoc || '',
+      semesterName: semester?.TenHocKy || '',
+      academicYearName: semester?.NamHoc || '',
+      room: classRow.PhongHoc || '',
+      schedule: classRow.LichHoc || '',
+      plannedStudentCount: Number(classRow.SiSo || 0),
+      studentCount: roster.length,
+    },
+    students: roster,
+  };
 }
 
 export async function fetchLecturerSummary() {

@@ -40,7 +40,7 @@ export default function AdminClassFormPage() {
           semesterCode: currentClass?.semesterCode || semesterRows[0]?.code || '',
           lecturerId: currentClass?.lecturerId || lecturerRows[0]?.value || '',
           code: currentClass?.code || '',
-          studentCount: String(currentClass?.studentCount || 0),
+          studentCount: String(currentClass?.plannedStudentCount ?? currentClass?.studentCount ?? 0),
           room: currentClass?.room || '',
           schedule: currentClass?.schedule || '',
         }));
