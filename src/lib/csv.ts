@@ -1,3 +1,26 @@
+declare global {
+  interface Window {
+    XLSX?: any;
+  }
+}
+
+let xlsxLoaderPromise: Promise<any> | null = null;
+
+function rowsToCsvContent(headers: string[], rows: Array<Array<string | number | null | undefined>>) {
+  const escapeCell = (value: string | number | null | undefined) => {
+    const raw = String(value ?? '');
+    if (/[",\n\r]/.test(raw)) {
+      return `"${raw.replace(/"/g, '""')}"`;
+    }
+    return raw;
+  };
+
+  return [
+    headers.map(escapeCell).join(','),
+    ...rows.map((row) => row.map(escapeCell).join(',')),
+  ].join('\n');
+}
+
 function rowsToObjects(rows: string[][]) {
   if (!rows.length) return { headers: [], data: [] as Record<string, string>[] };
   const headers = rows[0].map((header) => header.replace(/^\uFEFF/, '').trim());
@@ -117,6 +140,40 @@ export function parseSpreadsheetText(text: string) {
   return parseCsv(text);
 }
 
+function aoaToObjects(rows: any[][]) {
+  const normalizedRows = rows
+    .map((row) => (Array.isArray(row) ? row.map((cell) => String(cell ?? '').trim()) : []))
+    .filter((row) => row.some((cell) => cell.length > 0));
+  return rowsToObjects(normalizedRows);
+}
+
+async function loadXlsxLibrary() {
+  if (window.XLSX) return window.XLSX;
+  if (xlsxLoaderPromise) return xlsxLoaderPromise;
+
+  xlsxLoaderPromise = new Promise((resolve, reject) => {
+    const existing = document.querySelector('script[data-xlsx-loader="sheetjs"]') as HTMLScriptElement | null;
+    if (existing) {
+      existing.addEventListener('load', () => (window.XLSX ? resolve(window.XLSX) : reject(new Error('Không tải được thư viện XLSX.'))), { once: true });
+      existing.addEventListener('error', () => reject(new Error('Không tải được thư viện XLSX.')), { once: true });
+      return;
+    }
+
+    const script = document.createElement('script');
+    script.src = '/vendor/xlsx.full.min.js';
+    script.async = true;
+    script.dataset.xlsxLoader = 'sheetjs';
+    script.onload = () => {
+      if (window.XLSX) resolve(window.XLSX);
+      else reject(new Error('Không khởi tạo được thư viện XLSX.'));
+    };
+    script.onerror = () => reject(new Error('Không tải được thư viện XLSX.'));
+    document.head.appendChild(script);
+  });
+
+  return xlsxLoaderPromise;
+}
+
 export function downloadCsv(filename: string, content: string) {
   const bom = '\uFEFF';
   const blob = new Blob([bom, content], { type: 'text/csv;charset=utf-8;' });
@@ -126,6 +183,14 @@ export function downloadCsv(filename: string, content: string) {
   anchor.download = filename;
   anchor.click();
   URL.revokeObjectURL(url);
+}
+
+export function downloadCsvRows(
+  filename: string,
+  headers: string[],
+  rows: Array<Array<string | number | null | undefined>>,
+) {
+  downloadCsv(filename, rowsToCsvContent(headers, rows));
 }
 
 export function downloadDoc(filename: string, title: string, bodyHtml: string) {
@@ -172,7 +237,18 @@ export async function readCsvFile(file: File) {
 export async function readSpreadsheetFile(file: File) {
   const extension = file.name.split('.').pop()?.toLowerCase() || '';
   if (extension === 'xlsx') {
-    throw new Error('Hiện hệ thống hỗ trợ import Excel dạng XML 2003 / XLS văn bản / CSV xuất từ Excel. Vui lòng lưu file Excel thành XML Spreadsheet 2003 hoặc CSV rồi import.');
+    const XLSX = await loadXlsxLibrary();
+    const buffer = await file.arrayBuffer();
+    const workbook = XLSX.read(buffer, { type: 'array' });
+    const firstSheetName = workbook.SheetNames?.[0];
+    if (!firstSheetName) throw new Error('File XLSX không có sheet dữ liệu.');
+    const worksheet = workbook.Sheets[firstSheetName];
+    const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
+    const parsed = aoaToObjects(rows);
+    if (!parsed.headers.length) {
+      throw new Error('File XLSX không có dữ liệu hợp lệ.');
+    }
+    return parsed;
   }
 
   const text = await readCsvFile(file);
@@ -231,4 +307,20 @@ export function downloadExcelXml(
   anchor.download = filename;
   anchor.click();
   URL.revokeObjectURL(url);
+}
+
+export async function downloadXlsx(
+  filename: string,
+  headers: string[],
+  rows: Array<Array<string | number | null | undefined>>,
+  worksheetName = 'Sheet1',
+) {
+  const XLSX = await loadXlsxLibrary();
+  const workbook = XLSX.utils.book_new();
+  const worksheet = XLSX.utils.aoa_to_sheet([
+    headers,
+    ...rows.map((row) => row.map((cell) => (cell ?? ''))),
+  ]);
+  XLSX.utils.book_append_sheet(workbook, worksheet, worksheetName);
+  XLSX.writeFile(workbook, filename);
 }

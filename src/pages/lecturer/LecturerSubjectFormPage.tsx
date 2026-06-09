@@ -2,7 +2,7 @@ import { type ChangeEvent, useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import RoleLayout from '../../components/RoleLayout';
 import { Btn, PageState } from '../../layouts/AdminLayout';
-import { downloadCsv, parseCsv, readCsvFile } from '../../lib/csv';
+import { downloadCsvRows, downloadXlsx, readSpreadsheetFile } from '../../lib/csv';
 import { fetchSubjectById, saveSubject } from '../../lib/supabaseData';
 import { withLecturerActive } from './lecturerNav';
 import { useLecturerIdentity } from './useLecturerIdentity';
@@ -46,8 +46,7 @@ export default function LecturerSubjectFormPage() {
   }, [isEdit, subjectId]);
 
   const importSubjects = async (file: File) => {
-    const text = await readCsvFile(file);
-    const { data } = parseCsv(text);
+    const { data } = await readSpreadsheetFile(file);
     let successCount = 0;
     for (const row of data) {
       if (!row.code || !row.name) continue;
@@ -59,7 +58,7 @@ export default function LecturerSubjectFormPage() {
       });
       successCount += 1;
     }
-    setMessage(`Đã import ${successCount} môn học từ CSV.`);
+    setMessage(`Đã import ${successCount} môn học từ file CSV/XLSX.`);
   };
 
   const onUpload = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -117,18 +116,35 @@ export default function LecturerSubjectFormPage() {
         <div className="toolbar">
           <Link className="btn btn-secondary" to="/lecturer/subjects">Quay lại danh sách</Link>
           {!isEdit ? (
-            <button
-              type="button"
-              className="btn btn-tertiary"
-              onClick={() =>
-                downloadCsv(
-                  'template-subjects.csv',
-                  'code,name,credits,description\nSE500,"Chuyên đề kiểm thử nâng cao",3,"Mô tả môn học có dấu tiếng Việt"\n',
-                )
-              }
-            >
-              Tải template môn học
-            </button>
+            <>
+              <button
+                type="button"
+                className="btn btn-tertiary"
+                onClick={() =>
+                  void downloadXlsx(
+                    'template-subjects.xlsx',
+                    ['code', 'name', 'credits', 'description'],
+                    [['SE500', 'Chuyên đề kiểm thử nâng cao', 3, 'Mô tả môn học có dấu tiếng Việt']],
+                    'MonHoc',
+                  )
+                }
+              >
+                Tải template XLSX
+              </button>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() =>
+                  downloadCsvRows(
+                    'template-subjects.csv',
+                    ['code', 'name', 'credits', 'description'],
+                    [['SE500', 'Chuyên đề kiểm thử nâng cao', 3, 'Mô tả môn học có dấu tiếng Việt']],
+                  )
+                }
+              >
+                Tải template CSV
+              </button>
+            </>
           ) : null}
         </div>
       </header>
@@ -168,10 +184,10 @@ export default function LecturerSubjectFormPage() {
 
           {!isEdit ? (
             <section className="card">
-              <h2 className="section-title">Import môn học từ CSV</h2>
+              <h2 className="section-title">Import môn học từ CSV/XLSX</h2>
               <div className="field">
-                <label>File CSV</label>
-                <input className="input" type="file" accept=".csv,text/csv" onChange={onUpload} />
+                <label>File CSV/XLSX</label>
+                <input className="input" type="file" accept=".xlsx,.csv,text/csv" onChange={onUpload} />
               </div>
             </section>
           ) : null}

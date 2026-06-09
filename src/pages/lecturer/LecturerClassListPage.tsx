@@ -2,7 +2,7 @@ import { type ChangeEvent, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import RoleLayout from '../../components/RoleLayout';
 import { Btn, ConfirmDialog, PageState, Toast } from '../../layouts/AdminLayout';
-import { downloadExcelXml, readSpreadsheetFile } from '../../lib/csv';
+import { downloadCsvRows, downloadXlsx, readSpreadsheetFile } from '../../lib/csv';
 import { deleteLecturerClass, fetchLecturerClasses, saveLecturerClass } from '../../lib/supabaseData';
 import { withLecturerActive } from './lecturerNav';
 import { useLecturerIdentity } from './useLecturerIdentity';
@@ -126,15 +126,28 @@ export default function LecturerClassListPage() {
             type="button"
             className="btn btn-secondary"
             onClick={() =>
-              downloadExcelXml(
-                'template-lop-hoc.xml',
+              void downloadXlsx(
+                'template-lop-hoc.xlsx',
                 ['code', 'subjectCode', 'semesterCode', 'studentCount', 'room', 'schedule'],
                 [['SE999_1', 'SE104', 'HKNH_2026_HK1', 45, 'E3.1', 'Thứ 2, tiết 1-3']],
                 'LopHoc',
               )
             }
           >
-            Tải template Excel
+            Tải template XLSX
+          </button>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={() =>
+              downloadCsvRows(
+                'template-lop-hoc.csv',
+                ['code', 'subjectCode', 'semesterCode', 'studentCount', 'room', 'schedule'],
+                [['SE999_1', 'SE104', 'HKNH_2026_HK1', 45, 'E3.1', 'Thứ 2, tiết 1-3']],
+              )
+            }
+          >
+            Tải template CSV
           </button>
         </div>
       </header>
@@ -156,9 +169,9 @@ export default function LecturerClassListPage() {
                 <input className="input" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Mã lớp / môn học / học kỳ" />
               </div>
               <div className="field">
-                <label>Import file Excel</label>
-                <input className="input" type="file" accept=".xml,.csv,.txt,.xls" onChange={onUpload} disabled={importing} />
-                <p className="field-help">Hỗ trợ file CSV xuất từ Excel hoặc Excel XML 2003 theo template tải từ hệ thống.</p>
+                <label>Import file CSV/XLSX</label>
+                <input className="input" type="file" accept=".xlsx,.csv,text/csv,.xml,.txt,.xls" onChange={onUpload} disabled={importing} />
+                <p className="field-help">Hỗ trợ cả CSV và XLSX, đồng thời vẫn tương thích với XML Spreadsheet 2003 / text-like XLS cũ.</p>
               </div>
             </div>
             {importError ? <div className="field-error mt-16">{importError}</div> : null}

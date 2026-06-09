@@ -2,7 +2,7 @@ import { type ChangeEvent, type FormEvent, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import RoleLayout from '../../components/RoleLayout';
 import { Btn, PageState } from '../../layouts/AdminLayout';
-import { downloadCsv, parseCsv, readCsvFile } from '../../lib/csv';
+import { downloadCsvRows, downloadXlsx, readSpreadsheetFile } from '../../lib/csv';
 import { fetchDifficultyLevels, fetchLecturerQuestionById, fetchSubjects, QUESTION_KIND_OPTIONS, saveLecturerQuestion } from '../../lib/supabaseData';
 import { withLecturerActive } from './lecturerNav';
 import { useLecturerIdentity } from './useLecturerIdentity';
@@ -117,8 +117,7 @@ export default function LecturerQuestionFormPage() {
   };
 
   const importQuestions = async (file: File) => {
-    const text = await readCsvFile(file);
-    const { data } = parseCsv(text);
+    const { data } = await readSpreadsheetFile(file);
     let successCount = 0;
     for (const row of data) {
       if (!row.subject_code || !row.level_code || !row.content) continue;
@@ -140,7 +139,7 @@ export default function LecturerQuestionFormPage() {
       });
       successCount += 1;
     }
-    setImportMessage(`Đã import ${successCount} câu hỏi từ CSV.`);
+    setImportMessage(`Đã import ${successCount} câu hỏi từ file CSV/XLSX.`);
   };
 
   const onUpload =
@@ -154,7 +153,7 @@ export default function LecturerQuestionFormPage() {
       try {
         await handler(file);
       } catch (e: any) {
-        setSubmitError(e.message || 'Import CSV thất bại.');
+        setSubmitError(e.message || 'Import CSV/XLSX thất bại.');
       } finally {
         setSaving(false);
         event.target.value = '';
@@ -163,7 +162,7 @@ export default function LecturerQuestionFormPage() {
 
   return (
     <RoleLayout
-          title={lecturer.title}
+      title={lecturer.title}
       roleBadge={lecturer.roleBadge}
       sidebarSubtitle="Portal giảng viên"
       navItems={withLecturerActive('/lecturer/questions/create')}
@@ -171,7 +170,7 @@ export default function LecturerQuestionFormPage() {
       <header className="page-header">
         <div>
           <h1 className="page-title">{isEdit ? 'Sửa câu hỏi' : 'Tạo câu hỏi'}</h1>
-          <p className="page-subtitle">{isEdit ? 'Cập nhật lại nội dung, loại câu hỏi và rubric/đáp án.' : 'Màn hình này chỉ dùng để tạo mới câu hỏi (khác với trang Ngân hàng câu hỏi dùng để tra cứu).'}</p>
+          <p className="page-subtitle">{isEdit ? 'Cập nhật nội dung, loại câu hỏi và đáp án/rubric chấm.' : 'Tạo mới câu hỏi để bổ sung vào ngân hàng câu hỏi của môn học.'}</p>
         </div>
         <div className="toolbar">
           <Link className="btn btn-secondary" to="/lecturer/questions">Quay lại ngân hàng</Link>
@@ -179,13 +178,34 @@ export default function LecturerQuestionFormPage() {
             type="button"
             className="btn btn-tertiary"
             onClick={() =>
-              downloadCsv(
-                'template-questions.csv',
-                'subject_code,level_code,question_type,content,option_a,option_b,option_c,option_d,correct_answer,rubric,answer,status\nSE104,NB,TRAC_NGHIEM,"Câu hỏi trắc nghiệm có dấu tiếng Việt","Lựa chọn A","Lựa chọn B","Lựa chọn C","Lựa chọn D",A,,"A","Đang dùng"\nSE104,VD,TU_LUAN,"Câu hỏi tự luận có dấu tiếng Việt",,,,,,"Rubric chấm chi tiết","Rubric chấm chi tiết","Đang dùng"\n',
+              void downloadXlsx(
+                'template-questions.xlsx',
+                ['subject_code', 'level_code', 'question_type', 'content', 'option_a', 'option_b', 'option_c', 'option_d', 'correct_answer', 'rubric', 'answer', 'status'],
+                [
+                  ['SE104', 'NB', 'TRAC_NGHIEM', 'Câu hỏi trắc nghiệm có dấu tiếng Việt', 'Lựa chọn A', 'Lựa chọn B', 'Lựa chọn C', 'Lựa chọn D', 'A', '', 'A', 'Đang dùng'],
+                  ['SE104', 'VD', 'TU_LUAN', 'Câu hỏi tự luận có dấu tiếng Việt', '', '', '', '', '', 'Rubric chấm chi tiết', 'Rubric chấm chi tiết', 'Đang dùng'],
+                ],
+                'CauHoi',
               )
             }
           >
-            Tải template câu hỏi
+            Tải template XLSX
+          </button>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={() =>
+              downloadCsvRows(
+                'template-questions.csv',
+                ['subject_code', 'level_code', 'question_type', 'content', 'option_a', 'option_b', 'option_c', 'option_d', 'correct_answer', 'rubric', 'answer', 'status'],
+                [
+                  ['SE104', 'NB', 'TRAC_NGHIEM', 'Câu hỏi trắc nghiệm có dấu tiếng Việt', 'Lựa chọn A', 'Lựa chọn B', 'Lựa chọn C', 'Lựa chọn D', 'A', '', 'A', 'Đang dùng'],
+                  ['SE104', 'VD', 'TU_LUAN', 'Câu hỏi tự luận có dấu tiếng Việt', '', '', '', '', '', 'Rubric chấm chi tiết', 'Rubric chấm chi tiết', 'Đang dùng'],
+                ],
+              )
+            }
+          >
+            Tải template CSV
           </button>
         </div>
       </header>
@@ -282,14 +302,14 @@ export default function LecturerQuestionFormPage() {
           </form>
 
           <section className="card">
-            <h2 className="section-title">Import CSV câu hỏi</h2>
+            <h2 className="section-title">Import CSV/XLSX câu hỏi</h2>
             <div className="form-grid">
               <div className="field">
                 <label>Import câu hỏi</label>
-                <input className="input" type="file" accept=".csv,text/csv" onChange={onUpload(importQuestions)} />
+                <input className="input" type="file" accept=".xlsx,.csv,text/csv" onChange={onUpload(importQuestions)} />
               </div>
             </div>
-            <p className="field-help">CSV import phù hợp khi cần tạo nhiều câu hỏi một lần theo template tải từ web.</p>
+            <p className="field-help">Hỗ trợ import bằng cả CSV và XLSX theo template tải từ hệ thống.</p>
           </section>
         </>
       )}

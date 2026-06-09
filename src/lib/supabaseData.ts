@@ -1169,6 +1169,105 @@ export async function fetchLecturerClassStudents(classId: string) {
   };
 }
 
+export async function importLecturerClassStudents(
+  classId: string,
+  rows: Array<{
+    classCode?: string;
+    studentId: string;
+    fullName: string;
+    email?: string;
+    phone?: string;
+    dateOfBirth?: string;
+    joinedAt?: string;
+    status?: string;
+    note?: string;
+  }>,
+) {
+  const client = getClient();
+  const classData = await fetchLecturerClassStudents(classId);
+  const classCode = classData.classInfo.code;
+  const normalizedRows = rows
+    .map((row) => ({
+      classCode: String(row.classCode || classCode).trim(),
+      studentId: String(row.studentId || '').trim(),
+      fullName: String(row.fullName || '').trim(),
+      email: String(row.email || '').trim(),
+      phone: String(row.phone || '').trim(),
+      dateOfBirth: String(row.dateOfBirth || '').trim(),
+      joinedAt: String(row.joinedAt || '').trim(),
+      status: normalizeStatus(row.status || 'active'),
+      note: String(row.note || '').trim(),
+    }))
+    .filter((row) => row.studentId && row.fullName);
+  if (!normalizedRows.length) {
+    throw new Error('File import không có dòng sinh viên hợp lệ. Hãy dùng đúng template của lớp học.');
+  }
+
+  for (const row of normalizedRows) {
+    if (row.classCode && row.classCode !== classCode) {
+      throw new Error(`Dòng sinh viên ${row.studentId} không thuộc lớp ${classCode}.`);
+    }
+  }
+
+  const existingRosterRes = await queryFirstSafe<any[]>(TABLES.classStudents, (table) =>
+    client.from(table).select('*').eq('MaLopHoc', classId), []
+  );
+  const existingRosterMap = new Map((existingRosterRes.data || []).map((row: any) => [row.MaSinhVien, row]));
+
+  let successCount = 0;
+  for (const row of normalizedRows) {
+    const studentPayload = {
+      MaSinhVien: row.studentId,
+      HoTen: row.fullName,
+      Email: row.email || null,
+      SoDienThoai: row.phone || null,
+      NgaySinh: row.dateOfBirth || null,
+      TrangThai: row.status,
+    };
+    await queryFirst<any[]>(TABLES.students, (table) =>
+      client.from(table).upsert(studentPayload, { onConflict: 'MaSinhVien' }).select('MaSinhVien'),
+    );
+
+    const existingRoster = existingRosterMap.get(row.studentId);
+    if (existingRoster) {
+      await queryFirst<any[]>(TABLES.classStudents, (table) =>
+        client.from(table).update({
+          NgayThamGia: row.joinedAt || existingRoster.NgayThamGia || null,
+          TrangThai: row.status,
+          GhiChu: row.note || null,
+        }).eq('MaSinhVienLopHoc', existingRoster.MaSinhVienLopHoc).select('MaSinhVienLopHoc'),
+      );
+    } else {
+      await queryFirst<any[]>(TABLES.classStudents, (table) =>
+        client.from(table).insert({
+          MaSinhVienLopHoc: `SVLH_${classId}_${row.studentId}`,
+          MaSinhVien: row.studentId,
+          MaLopHoc: classId,
+          NgayThamGia: row.joinedAt || new Date().toISOString().slice(0, 10),
+          TrangThai: row.status,
+          GhiChu: row.note || null,
+        }).select('MaSinhVienLopHoc'),
+      );
+    }
+    successCount += 1;
+  }
+
+  const latestRosterRes = await queryFirstSafe<any[]>(TABLES.classStudents, (table) =>
+    client.from(table).select('MaSinhVienLopHoc').eq('MaLopHoc', classId).eq('TrangThai', 'active'), []
+  );
+  const latestActiveCount = (latestRosterRes.data || []).length;
+  if (latestActiveCount > Number(classData.classInfo.plannedStudentCount || 0)) {
+    await queryFirst<any[]>(TABLES.classes, (table) =>
+      client.from(table).update({ SiSo: latestActiveCount }).eq('MaLopHoc', classId).select('MaLopHoc'),
+    );
+  }
+
+  return {
+    classCode,
+    successCount,
+  };
+}
+
 export async function fetchLecturerSummary() {
   const client = getClient();
   const [subRes, detailRes] = await Promise.all([

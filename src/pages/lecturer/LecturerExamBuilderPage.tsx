@@ -2,7 +2,7 @@ import { type ChangeEvent, type FormEvent, useEffect, useMemo, useState } from '
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import RoleLayout from '../../components/RoleLayout';
 import { Btn, PageState } from '../../layouts/AdminLayout';
-import { downloadCsv, parseCsv, readCsvFile } from '../../lib/csv';
+import { downloadCsvRows, downloadXlsx, readSpreadsheetFile } from '../../lib/csv';
 import { EXAM_STATUS_OPTIONS, fetchActiveSemesters, fetchExamGradedCount, fetchExamRuleConfig, fetchLecturerExamById, fetchLecturerQuestionBank, fetchSubjects, saveLecturerExam } from '../../lib/supabaseData';
 import { withLecturerActive } from './lecturerNav';
 import { useLecturerIdentity } from './useLecturerIdentity';
@@ -136,8 +136,7 @@ export default function LecturerExamBuilderPage() {
   };
 
   const importExams = async (file: File) => {
-    const text = await readCsvFile(file);
-    const { data } = parseCsv(text);
+    const { data } = await readSpreadsheetFile(file);
     let successCount = 0;
     for (const row of data) {
       if (!row.title || !row.subject_code || !row.semester_code || !row.question_ids) continue;
@@ -159,7 +158,7 @@ export default function LecturerExamBuilderPage() {
       });
       successCount += 1;
     }
-    setImportMessage(`Đã import ${successCount} đề thi từ CSV.`);
+    setImportMessage(`Đã import ${successCount} đề thi từ file CSV/XLSX.`);
   };
 
   const onUpload = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -196,13 +195,28 @@ export default function LecturerExamBuilderPage() {
             type="button"
             className="btn btn-tertiary"
             onClick={() =>
-              downloadCsv(
-                'template-exams.csv',
-                'title,subject_code,semester_code,duration_minutes,question_ids,question_scores,status\n"Đề giữa kỳ SE104 có dấu tiếng Việt",SE104,HK1_2026_2027,60,CH00001;CH00002;CH00003,3;3;4,Đang dùng\n',
+              void downloadXlsx(
+                'template-exams.xlsx',
+                ['title', 'subject_code', 'semester_code', 'duration_minutes', 'question_ids', 'question_scores', 'status'],
+                [['Đề giữa kỳ SE104 có dấu tiếng Việt', 'SE104', 'HK1_2026_2027', 60, 'CH00001;CH00002;CH00003', '3;3;4', 'Đang dùng']],
+                'DeThi',
               )
             }
           >
-            Tải template đề thi
+            Tải template XLSX
+          </button>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={() =>
+              downloadCsvRows(
+                'template-exams.csv',
+                ['title', 'subject_code', 'semester_code', 'duration_minutes', 'question_ids', 'question_scores', 'status'],
+                [['Đề giữa kỳ SE104 có dấu tiếng Việt', 'SE104', 'HK1_2026_2027', 60, 'CH00001;CH00002;CH00003', '3;3;4', 'Đang dùng']],
+              )
+            }
+          >
+            Tải template CSV
           </button>
         </div>
       </header>
@@ -353,10 +367,10 @@ export default function LecturerExamBuilderPage() {
           </form>
 
           <section className="card">
-            <h2 className="section-title">Import đề thi từ CSV</h2>
+            <h2 className="section-title">Import đề thi từ CSV/XLSX</h2>
             <div className="field">
-              <label>File CSV</label>
-              <input className="input" type="file" accept=".csv,text/csv" onChange={onUpload} />
+              <label>File CSV/XLSX</label>
+              <input className="input" type="file" accept=".xlsx,.csv,text/csv" onChange={onUpload} />
             </div>
             <p className="field-help">Mỗi dòng là 1 đề thi. Cột `question_ids` và `question_scores` dùng dấu `;` để ngăn cách danh sách theo cùng thứ tự.</p>
           </section>
